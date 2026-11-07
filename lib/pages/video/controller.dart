@@ -41,6 +41,7 @@ import 'package:PiliPlus/pages/audio/view.dart';
 import 'package:PiliPlus/pages/video/interactive/interactive_coordinator.dart';
 import 'package:PiliPlus/pages/video/interactive/interactive_http.dart';
 import 'package:PiliPlus/pages/common/publish/publish_route.dart';
+import 'package:PiliPlus/pages/danmaku/mask/controller.dart';
 import 'package:PiliPlus/pages/later/base_controller.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
 import 'package:PiliPlus/pages/sponsor_block/block_mixin.dart';
@@ -1412,6 +1413,7 @@ class VideoDetailController extends GetxController
   late final showVP = true.obs;
   late final viewPointList = <ViewPointSegment>[].obs;
 
+  final danmakuMaskController = DanmakuMaskController();
   final RxList<Subtitle> subtitles = RxList<Subtitle>();
   final Map<int, SubtitleData> vttSubtitles = {};
   late final vttSubtitlesIndex = (-1).obs;
@@ -1544,6 +1546,7 @@ class VideoDetailController extends GetxController
   late bool continuePlayingPart = Pref.continuePlayingPart;
 
   Future<void> _queryPlayInfo() async {
+    final requestedCid = cid.value;
     vttSubtitles.clear();
     vttSubtitlesIndex.value = 0;
     if (plPlayerController.showViewPoints) {
@@ -1556,6 +1559,12 @@ class VideoDetailController extends GetxController
       epId: epId,
     );
     if (res case Success(:final response)) {
+      if (requestedCid == cid.value) {
+        final dmMask = response.dmMask;
+        danmakuMaskController.setSource(
+          dmMask?.cid == requestedCid ? dmMask : null,
+        );
+      }
       // interactive video
       if (isUgc && graphVersion == null) {
         try {
@@ -1695,6 +1704,7 @@ class VideoDetailController extends GetxController
       ..dispose();
     subtitles.clear();
     vttSubtitles.clear();
+    danmakuMaskController.dispose();
     super.onClose();
   }
 
@@ -1714,6 +1724,7 @@ class VideoDetailController extends GetxController
 
     // danmaku
     savedDanmaku = null;
+    danmakuMaskController.setSource(null);
 
     // subtitle
     subtitles.clear();
