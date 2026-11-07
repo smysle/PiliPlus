@@ -204,6 +204,7 @@ abstract final class SettingBoxKey {
       blockColor = 'blockColor',
       blockUserID = 'blockUserID',
       blockToast = 'blockToast',
+      blockToastDuration = 'blockToastDuration',
       blockServer = 'blockServer',
       blockTrack = 'blockTrack';
 

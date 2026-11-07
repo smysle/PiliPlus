@@ -7,6 +7,7 @@ import 'package:PiliPlus/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliPlus/models/common/sponsor_block/skip_type.dart';
 import 'package:PiliPlus/models_new/sponsor_block/user_info.dart';
 import 'package:PiliPlus/pages/setting/slide_color_picker.dart';
+import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/utils/accounts/account_manager/account_mgr.dart';
 import 'package:PiliPlus/utils/filtering_text.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
@@ -234,6 +235,45 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
             onChanged: (val) => update(),
           ),
         ),
+      );
+    },
+  );
+
+  Widget _blockToastDurationItem(
+    ThemeData theme,
+    TextStyle titleStyle,
+    TextStyle subTitleStyle,
+  ) => Builder(
+    builder: (context) {
+      final seconds = Pref.blockToastDuration;
+      return ListTile(
+        dense: true,
+        title: Text('提示停留时长', style: titleStyle),
+        subtitle: Text(
+          seconds == 0 ? '跟随默认' : '$seconds 秒',
+          style: subTitleStyle,
+        ),
+        trailing: const Icon(Icons.chevron_right, size: 20),
+        onTap: () async {
+          final res = await showDialog<int>(
+            context: context,
+            builder: (context) => SelectDialog<int>(
+              title: '提示停留时长',
+              value: seconds,
+              values: const [
+                (0, '跟随默认'),
+                (2, '2 秒'),
+                (3, '3 秒'),
+                (5, '5 秒'),
+                (8, '8 秒'),
+              ],
+            ),
+          );
+          if (res != null) {
+            await setting.put(SettingBoxKey.blockToastDuration, res);
+            (context as Element).markNeedsBuild();
+          }
+        },
       );
     },
   );
@@ -492,6 +532,10 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
           ),
           sliverDivider,
           SliverToBoxAdapter(child: _blockToastItem(titleStyle)),
+          if (_blockToast)
+            SliverToBoxAdapter(
+              child: _blockToastDurationItem(theme, titleStyle, subTitleStyle),
+            ),
           sliverDivider,
           SliverToBoxAdapter(child: _blockTrackItem(titleStyle, subTitleStyle)),
           sliverDivider,
