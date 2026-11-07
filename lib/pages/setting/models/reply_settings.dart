@@ -23,6 +23,19 @@ List<SettingsModel> get replySettings => [
     setKey: SettingBoxKey.showVideoReply,
     defaultVal: true,
   ),
+  NormalModel(
+    title: '评论展示数量',
+    subtitle: '0 为不限制，减少评论可帮助集中注意力',
+    leading: const Icon(MdiIcons.commentTextOutline),
+    getTrailing: (theme) => Text(
+      switch (Pref.maxReplyCount) {
+        0 => '不限',
+        final max => '$max 条',
+      },
+      style: theme.textTheme.titleSmall,
+    ),
+    onTap: _showMaxReplyCountDialog,
+  ),
   const SwitchModel(
     title: '显示番剧评论',
     leading: Icon(MdiIcons.commentTextOutline),
@@ -136,6 +149,28 @@ List<SettingsModel> get replySettings => [
         .whenComplete(setState),
   ),
 ];
+
+Future<void> _showMaxReplyCountDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('评论展示数量'),
+      min: 0,
+      max: 100,
+      divisions: 100,
+      precise: 0,
+      value: Pref.maxReplyCount.toDouble(),
+      suffix: ' 条',
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.maxReplyCount, res.toInt());
+    setState();
+  }
+}
 
 void _showReplyLengthDialog(BuildContext context, VoidCallback setState) {
   String replyLengthLimit = ReplyItemGrpc.replyLengthLimit.toString();

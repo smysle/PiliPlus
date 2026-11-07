@@ -395,6 +395,14 @@ abstract final class Pref {
   static bool get showVideoReply =>
       _setting.get(SettingBoxKey.showVideoReply, defaultValue: true);
 
+  /// 播放页推荐视频最多展示条数，0 表示不限制
+  static int get maxRelatedVideo =>
+      _setting.get(SettingBoxKey.maxRelatedVideo, defaultValue: 0);
+
+  /// 播放页评论最多展示条数，0 表示不限制
+  static int get maxReplyCount =>
+      _setting.get(SettingBoxKey.maxReplyCount, defaultValue: 0);
+
   static bool get showBangumiReply =>
       _setting.get(SettingBoxKey.showBangumiReply, defaultValue: true);
 
