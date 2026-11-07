@@ -17,9 +17,11 @@ class LaterViewChildPage extends StatefulWidget {
   const LaterViewChildPage({
     super.key,
     required this.laterViewType,
+    this.tagPrefix = '',
   });
 
   final LaterViewType laterViewType;
+  final String tagPrefix;
 
   @override
   State<LaterViewChildPage> createState() => _LaterViewChildPageState();
@@ -33,9 +35,12 @@ class _LaterViewChildPageState extends State<LaterViewChildPage>
   @override
   void initState() {
     super.initState();
-    _laterController = Get.put(
-      LaterController(widget.laterViewType),
-      tag: widget.laterViewType.type.toString(),
+    _laterController = Get.putOrFind(
+      () => LaterController(
+        widget.laterViewType,
+        tagPrefix: widget.tagPrefix,
+      ),
+      tag: '${widget.tagPrefix}${widget.laterViewType.type}',
     );
   }
 

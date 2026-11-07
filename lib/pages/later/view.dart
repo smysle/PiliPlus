@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:PiliPlus/common/widgets/appbar/appbar.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
@@ -7,9 +9,11 @@ import 'package:PiliPlus/common/widgets/scroll_physics.dart'
     show tabBarScrollPhysics;
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/models/common/later_view_type.dart';
+import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/models_new/later/list.dart';
 import 'package:PiliPlus/pages/later/base_controller.dart';
 import 'package:PiliPlus/pages/later/controller.dart';
+import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
@@ -19,22 +23,57 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:material_ui/material_ui.dart';
 
 class LaterPage extends StatefulWidget {
-  const LaterPage({super.key});
+  /// Navbar 常驻 tab 使用的 tag 前缀，用于和 push 进来的页面区分
+  static const tabTagPrefix = 'nav_';
+
+  const LaterPage({super.key, this.showBackBtn = true, this.tagPrefix = ''});
+
+  /// 作为 Navbar 常驻 tab 时为 false，避免根路由上出现返回键
+  final bool showBackBtn;
+
+  /// 区分 Navbar tab 与 push 进来的页面实例，避免互相覆盖控制器
+  final String tagPrefix;
 
   @override
   State<LaterPage> createState() => _LaterPageState();
 }
 
 class _LaterPageState extends State<LaterPage>
-    with SingleTickerProviderStateMixin, RouteAware, RouteAwareMixin {
-  final LaterBaseController _baseCtr = Get.put(LaterBaseController());
+    with
+        SingleTickerProviderStateMixin,
+        AutomaticKeepAliveClientMixin,
+        RouteAware,
+        RouteAwareMixin {
+  final LaterBaseController _baseCtr = Get.putOrFind(LaterBaseController.new);
   late final TabController _tabController;
+
+  /// 是否是 Navbar 常驻 tab；只有它需要跟随 [MainController.selectedIndex]
+  bool get _isNavbarTab => widget.tagPrefix == LaterPage.tabTagPrefix;
+
+  /// 路由栈是否处于可见状态（RouteAware 只覆盖 push/pop，不覆盖 tab 切换）
+  bool _routeVisible = true;
+
+  MainController? _mainController;
+  StreamSubscription<int>? _indexSub;
+
+  bool get _tabSelected {
+    final main = _mainController;
+    if (main == null || !_isNavbarTab) return true;
+    final index = main.selectedIndex.value;
+    return index >= 0 &&
+        index < main.navigationBars.length &&
+        main.navigationBars[index] == NavigationBarType.later;
+  }
+
+  void _syncVisible() {
+    _baseCtr.setVisible(_routeVisible && _tabSelected, this);
+  }
 
   LaterController currCtr([int? index]) {
     final type = LaterViewType.values[index ?? _tabController.index];
     return Get.putOrFind(
-      () => LaterController(type),
-      tag: type.type.toString(),
+      () => LaterController(type, tagPrefix: widget.tagPrefix),
+      tag: '${widget.tagPrefix}${type.type}',
     );
   }
 
@@ -50,33 +89,48 @@ class _LaterPageState extends State<LaterPage>
       length: LaterViewType.values.length,
       vsync: this,
     )..addListener(listener);
-    _baseCtr.setVisible(true);
+    if (Get.isRegistered<MainController>()) {
+      _mainController = Get.find<MainController>();
+      if (_isNavbarTab) {
+        _indexSub = _mainController!.selectedIndex.listen((_) => _syncVisible());
+      }
+    }
+    _syncVisible();
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   void didPushNext() {
-    _baseCtr.setVisible(false);
+    _routeVisible = false;
+    _syncVisible();
     super.didPushNext();
   }
 
   @override
   void didPopNext() {
-    _baseCtr.setVisible(true);
+    _routeVisible = true;
+    _syncVisible();
     super.didPopNext();
   }
 
   @override
   void dispose() {
-    _baseCtr.setVisible(false);
+    _indexSub?.cancel();
+    // 只移除自己的可见性，push 页面与常驻 tab 共享同一 base controller
+    _baseCtr.setVisible(false, this);
     _tabController
       ..removeListener(listener)
       ..dispose();
-    Get.delete<LaterBaseController>();
+    // 不在此处 Get.delete<LaterBaseController>()：Navbar 常驻 tab 与
+    // push 进来的 /later 页面共享同一实例，任一页面 dispose 都无权销毁它
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final padding = MediaQuery.viewPaddingOf(context);
     return Obx(
       () {
@@ -155,7 +209,7 @@ class _LaterPageState extends State<LaterPage>
                       horizontalDragGestureRecognizer:
                           CustomHorizontalDragGestureRecognizer.new,
                       children: LaterViewType.values
-                          .map((item) => item.page)
+                          .map((item) => item.page(tagPrefix: widget.tagPrefix))
                           .toList(),
                     ),
                   ),
@@ -216,6 +270,7 @@ class _LaterPageState extends State<LaterPage>
         ),
       ],
       child: AppBar(
+        automaticallyImplyLeading: widget.showBackBtn,
         title: const Text('稍后再看'),
         actions: [
           IconButton(
