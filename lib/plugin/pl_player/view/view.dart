@@ -59,7 +59,6 @@ import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
-import 'package:PiliPlus/utils/ios/pip_helper.dart';
 import 'package:PiliPlus/utils/mobile_observer.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
@@ -144,6 +143,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   Offset? _initialFocalPoint;
 
   bool _pauseDueToPauseUponEnteringBackgroundMode = false;
+  bool _wasPlayingOnBackground = false;
 
   StreamSubscription? _brightnessListener;
   void _onBrightnessChanged(double value) {
@@ -335,20 +335,39 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Keep playing in the PiP window.
-    if (Platform.isIOS && IOSPipHelper.isActive) return;
-    if (!plPlayerController.continuePlayInBackground.value) {
-      if (const <AppLifecycleState>[.paused, .detached].contains(state)) {
-        final player = plPlayerController.videoPlayerController;
-        if (player != null && player.state.playing) {
-          _pauseDueToPauseUponEnteringBackgroundMode = true;
-          plPlayerController.pause();
-        }
-      } else {
-        if (_pauseDueToPauseUponEnteringBackgroundMode) {
-          _pauseDueToPauseUponEnteringBackgroundMode = false;
-          plPlayerController.play();
-        }
+    // Keep playing in the PiP window (iOS / Android / desktop).
+    if (plPlayerController.isPipMode) return;
+    final player = plPlayerController.videoPlayerController;
+
+    if (state == .resumed) {
+      final shouldResume = plPlayerController.shouldResumeAfterBackground(
+        wasPlaying: _wasPlayingOnBackground,
+        pausedByBackground: _pauseDueToPauseUponEnteringBackgroundMode,
+      );
+      _pauseDueToPauseUponEnteringBackgroundMode = false;
+      _wasPlayingOnBackground = false;
+      if (shouldResume) {
+        unawaited(plPlayerController.resumeAfterBackground());
+      }
+      return;
+    }
+
+    if (const <AppLifecycleState>[.hidden, .paused, .detached].contains(
+      state,
+    )) {
+      if (plPlayerController.rememberBackgroundPlayback(
+        playerPlaying:
+            player?.state.playing == true ||
+            plPlayerController.playerStatus.isPlaying,
+      )) {
+        _wasPlayingOnBackground = true;
+      }
+      if (!plPlayerController.continuePlayInBackground.value &&
+          player != null &&
+          player.state.playing) {
+        _pauseDueToPauseUponEnteringBackgroundMode = true;
+        // 后台自动暂停不计入用户意图，回前台后由 rememberBackgroundPlayback 决定是否续播
+        unawaited(plPlayerController.pause(userInitiated: false));
       }
     }
   }
@@ -1869,7 +1888,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                   plPlayerController.playerStatus.isPlaying)) {
             return Center(
               child: GestureDetector(
-                onTap: plPlayerController.refreshPlayer,
+                onTap: () => unawaited(plPlayerController.recoverOrReload()),
                 child: Container(
                   padding: const EdgeInsets.all(20),
                   decoration: const BoxDecoration(
@@ -2089,7 +2108,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       actionType: ActionType.skip,
     );
     final isPlay = ctr.playerStatus.isPlaying;
-    if (isPlay) ctr.pause();
+    if (isPlay) ctr.pause(userInitiated: false);
 
     WebpPreset preset = WebpPreset.def;
 

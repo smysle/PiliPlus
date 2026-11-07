@@ -22,8 +22,9 @@ class AudioSessionHandler {
 
     // 耳机拔出暂停
     _session.becomingNoisyEventStream.listen((_) {
+      // 耳机拔出按用户暂停处理，避免设备变化后自动恢复播放
       videoPlayerServiceHandler?.onPause?.call() ??
-          PlPlayerController.pauseIfExists();
+          PlPlayerController.pauseIfExists(userInitiated: true);
     });
   }
 
@@ -45,7 +46,8 @@ class AudioSessionHandler {
             }
           } else if (player != null && player.playerStatus.isPlaying) {
             _shouldResume = true;
-            player.pause(isInterrupt: true);
+            // 系统中断不算用户暂停，恢复后可自动续播
+            player.pause(userInitiated: false, isInterrupt: true);
           }
       }
     } else {
