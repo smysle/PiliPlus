@@ -10,9 +10,14 @@ class LaterBaseController extends GetxController {
   int _changeVersion = 0;
   int get changeVersion => _changeVersion;
 
-  bool _isVisible = false;
+  // 同一个 base controller 可能同时被 Navbar 常驻 tab 和 push 进来的
+  // /later 页面持有，可见性必须按持有者计数，否则一方 setVisible(false)
+  // 会把另一方仍在展示的页面标记为不可见。
+  final Set<Object> _visibleOwners = {};
+  bool get isVisible => _visibleOwners.isNotEmpty;
+
   bool _refreshScheduled = false;
-  final Map<LaterViewType, Future<void> Function()> _refreshers = {};
+  final Map<LaterViewType, Set<Future<void> Function()>> _refreshers = {};
 
   // A playback request can finish after its route has already been popped.
   static void notifyChanged() {
@@ -26,26 +31,34 @@ class LaterBaseController extends GetxController {
     _scheduleRefresh();
   }
 
-  void setVisible(bool visible) {
-    _isVisible = visible;
-    if (visible) _scheduleRefresh();
+  void setVisible(bool visible, [Object? owner]) {
+    final key = owner ?? this;
+    if (visible) {
+      _visibleOwners.add(key);
+      _scheduleRefresh();
+    } else {
+      _visibleOwners.remove(key);
+    }
   }
 
   void registerRefresh(LaterViewType type, Future<void> Function() refresh) {
-    _refreshers[type] = refresh;
+    (_refreshers[type] ??= {}).add(refresh);
   }
 
   void unregisterRefresh(LaterViewType type, Future<void> Function() refresh) {
-    if (_refreshers[type] == refresh) _refreshers.remove(type);
+    final refreshers = _refreshers[type];
+    if (refreshers == null) return;
+    refreshers.remove(refresh);
+    if (refreshers.isEmpty) _refreshers.remove(type);
   }
 
   void _scheduleRefresh() {
-    if (!_isVisible || _refreshScheduled || isClosed) return;
+    if (!isVisible || _refreshScheduled || isClosed) return;
     _refreshScheduled = true;
     scheduleMicrotask(() {
       _refreshScheduled = false;
-      if (!_isVisible || isClosed) return;
-      for (final refresh in _refreshers.values.toList()) {
+      if (!isVisible || isClosed) return;
+      for (final refresh in _refreshers.values.expand((e) => e).toList()) {
         unawaited(refresh());
       }
     });

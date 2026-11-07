@@ -11,6 +11,7 @@ import 'package:PiliPlus/pages/common/multi_select/base.dart';
 import 'package:PiliPlus/pages/common/multi_select/multi_select_controller.dart';
 import 'package:PiliPlus/pages/later/base_controller.dart';
 import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -81,10 +82,11 @@ mixin BaseLaterController
 
 class LaterController extends MultiSelectController<LaterData, LaterItemModel>
     with BaseLaterController {
-  LaterController(this.laterViewType) {
+  LaterController(this.laterViewType, {this.tagPrefix = ''}) {
     _refreshedVersion = baseCtr.changeVersion;
   }
   final LaterViewType laterViewType;
+  final String tagPrefix;
 
   late int _refreshedVersion;
   Future<void>? _queryFuture;
@@ -94,7 +96,7 @@ class LaterController extends MultiSelectController<LaterData, LaterItemModel>
 
   final RxBool asc = false.obs;
 
-  final LaterBaseController baseCtr = Get.put(LaterBaseController());
+  final LaterBaseController baseCtr = Get.putOrFind(LaterBaseController.new);
 
   @override
   RxBool get enableMultiSelect => baseCtr.enableMultiSelect;
@@ -245,7 +247,9 @@ class LaterController extends MultiSelectController<LaterData, LaterItemModel>
             ..remove(laterViewType);
           for (final item in restTypes) {
             try {
-              Get.find<LaterController>(tag: item.type.toString()).onReload();
+              Get.find<LaterController>(
+                tag: '$tagPrefix${item.type}',
+              ).onReload();
             } catch (_) {}
           }
           SmartDialog.showToast('已清空');

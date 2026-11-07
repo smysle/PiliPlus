@@ -8,7 +8,8 @@ enum LaterViewType {
   // viewed(3, '已看完'),
   ;
 
-  Widget get page => LaterViewChildPage(laterViewType: this);
+  Widget page({String tagPrefix = ''}) =>
+      LaterViewChildPage(laterViewType: this, tagPrefix: tagPrefix);
 
   final int type;
   final String title;

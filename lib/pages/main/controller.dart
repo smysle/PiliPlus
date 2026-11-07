@@ -227,14 +227,9 @@ class MainController extends GetxController
   void setNavBarConfig() {
     List<int>? navBarSort =
         (GStorage.setting.get(SettingBoxKey.navBarSort) as List?)?.fromCast();
-    late final List<NavigationBarType> navigationBars;
-    if (navBarSort == null || navBarSort.isEmpty) {
-      navigationBars = NavigationBarType.values;
-    } else {
-      navigationBars = navBarSort
-          .map(NavigationBarType.values.elementAt)
-          .toList();
-    }
+    // 未配置时使用 defaultBars 而非 NavigationBarType.values，
+    // 避免新增枚举项（如稍后再看）被默认塞进 Navbar。
+    final navigationBars = NavigationBarType.fromSort(navBarSort);
     this.navigationBars = navigationBars;
     final defPage = Pref.defaultHomePage;
     selectedIndex.value = math.max(0, navigationBars.indexOf(defPage));
@@ -314,7 +309,8 @@ class MainController extends GetxController
           () => switch (currentNav) {
             .home => homeController.showRefresh(),
             .dynamics => dynamicController.showRefresh(),
-            .mine => null,
+            // 稍后再看 tab 的控制器由页面自身持有，这里无需逐屏刷新
+            .mine || .later => null,
           },
         );
       } else {
