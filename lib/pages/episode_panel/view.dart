@@ -799,6 +799,12 @@ class _EpisodePanelState extends State<EpisodePanel>
         ),
         if (_isUgc) _buildDataReverseBtn,
         const Spacer(),
+        iconButton(
+          iconSize: 22,
+          tooltip: '缓存',
+          icon: const Icon(Icons.download_outlined),
+          onPressed: () => _introController.videoDetailCtr.onDownload(context),
+        ),
         _buildUiReverseBtn,
         if (!_isSidePanel)
           iconButton(
