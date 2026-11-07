@@ -75,6 +75,10 @@ class LoginAccount extends Account {
     onChange();
   }
 
+  /// 为新账号选择评论接口账号时是否已初始化，避免每次启动重建
+  @HiveField(5)
+  bool replyAccountInitialized;
+
   @override
   bool activated = false;
 
@@ -116,6 +120,7 @@ class LoginAccount extends Account {
     'refresh': refresh,
     'buvid': buvid,
     'type': type.map((i) => i.index).toList(),
+    'replyAccountInitialized': replyAccountInitialized,
   };
 
   late final String _midStr = cookieJar
@@ -131,6 +136,7 @@ class LoginAccount extends Account {
     this.refresh, [
     Set<AccountType>? type,
     String? buvid,
+    this.replyAccountInitialized = true,
   ]) : type = type ?? {} {
     if (buvid != null) _buvid = buvid;
     cookieJar.setBuvid3();
@@ -142,7 +148,29 @@ class LoginAccount extends Account {
     json['refresh'],
     (json['type'] as Iterable?)?.map((i) => AccountType.values[i]).toSet(),
     json['buvid'],
+    json['replyAccountInitialized'] == true,
   );
+
+  static List<LoginAccount> initializeReplyAccount(
+    Iterable<LoginAccount> accounts,
+  ) {
+    final pending = accounts.where((a) => !a.replyAccountInitialized).toList();
+    if (pending.isEmpty) return pending;
+    if (!accounts.any(
+      (a) => a.replyAccountInitialized || a.type.contains(AccountType.reply),
+    )) {
+      for (final account in pending) {
+        if (account.type.contains(AccountType.main)) {
+          account.type.add(AccountType.reply);
+          break;
+        }
+      }
+    }
+    for (final account in pending) {
+      account.replyAccountInitialized = true;
+    }
+    return pending;
+  }
 
   @override
   int get hashCode => mid.hashCode;
