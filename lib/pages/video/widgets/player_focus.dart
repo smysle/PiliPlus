@@ -132,13 +132,19 @@ class PlayerFocus extends StatelessWidget {
   bool _handleKey(BuildContext context, KeyEvent event) {
     final key = event.logicalKey;
 
-    // 固定系统行为（不可自定义）：macOS Cmd+Q 退出，Meta+Q/R 吞掉
-    if (HardwareKeyboard.instance.isMetaPressed &&
-        (key == LogicalKeyboardKey.keyQ || key == LogicalKeyboardKey.keyR)) {
-      if (key == LogicalKeyboardKey.keyQ && Platform.isMacOS) {
-        exit(0);
+    // 固定系统行为（不可自定义）：macOS Cmd+Q 退出，Meta+Q/R 吞掉；
+    // macOS Cmd+M 需放行给系统菜单的 Minimize，不能吞掉，否则系统快捷键失效。
+    if (HardwareKeyboard.instance.isMetaPressed) {
+      if (key == LogicalKeyboardKey.keyQ || key == LogicalKeyboardKey.keyR) {
+        if (key == LogicalKeyboardKey.keyQ && Platform.isMacOS) {
+          exit(0);
+        }
+        return true;
       }
-      return true;
+      if (key == LogicalKeyboardKey.keyM) {
+        // 放行（不 handled）时事件会继续向上冒泡，交给系统菜单处理
+        return !Platform.isMacOS;
+      }
     }
 
     final action = ShortcutService.matchAction(
