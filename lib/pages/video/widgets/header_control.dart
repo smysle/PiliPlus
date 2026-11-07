@@ -1865,7 +1865,41 @@ class HeaderControlState extends State<HeaderControl>
                       },
                     ),
                   ),
-                ],
+                Obx(
+                  () => videoDetailCtr.segmentProgressList.isNotEmpty
+                      ? SizedBox(
+                          width: btnWidth,
+                          height: btnHeight,
+                          child: IconButton(
+                            tooltip: '片段信息',
+                            style: btnStyle,
+                            onPressed: videoDetailCtr.showSBDetail,
+                            icon: const Icon(
+                              MdiIcons.advertisements,
+                              size: 19,
+                              color: Colors.white,
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
+              if (isFileSource && !isFSOrPip) ...[
+                SizedBox(
+                  width: btnWidth,
+                  height: btnHeight,
+                  child: IconButton(
+                    tooltip: '听音频',
+                    style: btnStyle,
+                    onPressed: videoDetailCtr.toAudioPage,
+                    icon: const Icon(
+                      Icons.headphones_outlined,
+                      size: 19,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
                 SizedBox(
                   width: btnWidth,
                   height: btnHeight,

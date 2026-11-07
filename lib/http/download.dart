@@ -82,8 +82,10 @@ abstract final class DownloadHttp {
         List<Type2File>? audioFileList;
         final List<AudioItem>? audioList = dash.audio;
         if (audioList != null && audioList.isNotEmpty) {
-          final preferAudioQa =
-              entry.preferedAudioQuality ?? Pref.defaultAudioQa;
+          // 仅下载音频时优先沿用缓存条目记录的音质
+          final preferAudioQa = entry.audioOnly && entry.audioQuality != null
+              ? entry.audioQuality!
+              : entry.preferedAudioQuality ?? Pref.defaultAudioQa;
           final audioDash = VideoUtils.findTargetAudio(
             audioList,
             preferAudioQa,

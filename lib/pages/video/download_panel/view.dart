@@ -68,6 +68,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
   late final cidSet = widget.cidSet;
   VideoQuality _quality = VideoQuality.fromCode(Pref.defaultVideoQa);
   AudioQuality _audioQuality = AudioQuality.fromCode(Pref.defaultAudioQa);
+  bool _audioOnly = false;
 
   late ColorScheme colorScheme;
 
@@ -121,25 +122,27 @@ class _DownloadPanelState extends State<DownloadPanel> {
             child: Row(
               spacing: 12,
               children: [
-                Text('画质', style: textStyle),
-                Builder(
-                  builder: (context) => PopupMenuButton<VideoQuality>(
-                    initialValue: _quality,
-                    onSelected: (value) {
-                      _quality = value;
-                      (context as Element).markNeedsBuild();
-                    },
-                    itemBuilder: (context) => VideoQuality.values
-                        .map(
-                          (e) => PopupMenuItem(
-                            value: e,
-                            child: Text(e.desc),
-                          ),
-                        )
-                        .toList(),
-                    child: _buildPopupMenuChild(_quality.desc),
+                if (!_audioOnly) ...[
+                  Text('画质', style: textStyle),
+                  Builder(
+                    builder: (context) => PopupMenuButton<VideoQuality>(
+                      initialValue: _quality,
+                      onSelected: (value) {
+                        _quality = value;
+                        (context as Element).markNeedsBuild();
+                      },
+                      itemBuilder: (context) => VideoQuality.values
+                          .map(
+                            (e) => PopupMenuItem(
+                              value: e,
+                              child: Text(e.desc),
+                            ),
+                          )
+                          .toList(),
+                      child: _buildPopupMenuChild(_quality.desc),
+                    ),
                   ),
-                ),
+                ],
                 Text('音质', style: textStyle),
                 Builder(
                   builder: (context) => PopupMenuButton<AudioQuality>(
@@ -160,6 +163,30 @@ class _DownloadPanelState extends State<DownloadPanel> {
                   ),
                 ),
               ],
+            ),
+          ),
+          TextButton.icon(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: () => setState(() => _audioOnly = !_audioOnly),
+            icon: Icon(
+              _audioOnly ? Icons.check_box : Icons.check_box_outline_blank,
+              size: 16,
+              color: _audioOnly
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
+            ),
+            label: Text(
+              '仅下载音频',
+              style: TextStyle(
+                fontSize: 13,
+                color: _audioOnly
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           Builder(
@@ -348,6 +375,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
             videoQuality: _quality,
             audioQuality: _audioQuality,
             seasonInfo: widget.videoDetail?.seasonInfo(index),
+            audioOnly: _audioOnly,
           );
           break;
         case ugc.EpisodeItem episode:
@@ -359,6 +387,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
             videoQuality: _quality,
             audioQuality: _audioQuality,
             seasonInfo: widget.videoDetail?.seasonInfo(index),
+            audioOnly: _audioOnly,
           );
           break;
         case pgc.EpisodeItem episode:
@@ -368,6 +397,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
             episode: episode,
             quality: _quality,
             audioQuality: _audioQuality,
+            audioOnly: _audioOnly,
           );
           break;
       }
