@@ -5,6 +5,7 @@ import 'package:PiliPlus/models/model_hot_video_item.dart';
 import 'package:PiliPlus/pages/video/related/controller.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/grid.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -50,7 +51,11 @@ class _RelatedVideoPanelState extends State<RelatedVideoPanel> with GridMixin {
                       ..refresh(),
                   );
                 },
-                itemCount: response.length,
+                // 限制推荐视频展示数量，0 表示不限制
+                itemCount: switch (Pref.maxRelatedVideo) {
+                  final max when max > 0 && max < response.length => max,
+                  _ => response.length,
+                },
               )
             : const SliverToBoxAdapter(),
       Error(:final errMsg) => HttpError(

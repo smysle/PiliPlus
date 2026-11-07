@@ -163,6 +163,19 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.showRelatedVideo,
     defaultVal: true,
   ),
+  NormalModel(
+    title: '推荐视频展示数量',
+    subtitle: '0 为不限制，减少推荐可帮助集中注意力',
+    leading: const Icon(MdiIcons.motionPlayOutline),
+    getTrailing: (theme) => Text(
+      switch (Pref.maxRelatedVideo) {
+        0 => '不限',
+        final max => '$max 条',
+      },
+      style: theme.textTheme.titleSmall,
+    ),
+    onTap: _showMaxRelatedVideoDialog,
+  ),
   const SwitchModel(
     title: '默认展开视频简介',
     leading: Icon(Icons.expand_more),
@@ -473,6 +486,28 @@ Future<void> _showAngleDegreesDialog(
   );
   if (res != null) {
     await GStorage.setting.put(SettingBoxKey.angleDegrees, res.toInt());
+    setState();
+  }
+}
+
+Future<void> _showMaxRelatedVideoDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('推荐视频展示数量'),
+      min: 0,
+      max: 50,
+      divisions: 50,
+      precise: 0,
+      value: Pref.maxRelatedVideo.toDouble(),
+      suffix: ' 条',
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.maxRelatedVideo, res.toInt());
     setState();
   }
 }

@@ -14,6 +14,7 @@ import 'package:PiliPlus/pages/common/reply/vote/reply_vote_item.dart';
 import 'package:PiliPlus/pages/video/reply/controller.dart';
 import 'package:PiliPlus/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -156,7 +157,14 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
         );
       case Success(:final response):
         if (response != null && response.isNotEmpty) {
-          var count = response.length + 1;
+          // 限制评论展示数量，0 表示不限制；限制后 footer 不再渲染，
+          // 避免出现「没有更多了」与隐藏条数矛盾的提示
+          final maxReply = Pref.maxReplyCount;
+          final limited = maxReply > 0 && maxReply < response.length
+              ? response.sublist(0, maxReply)
+              : response;
+          var count =
+              limited.length + (limited.length == response.length ? 1 : 0);
           final voteCard = controller.voteCard;
           final hasVote = voteCard != null;
           if (hasVote) {
@@ -171,10 +179,10 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                   index--;
                 }
               }
-              if (index == response.length) {
+              if (index == limited.length) {
                 return buildFooter();
               } else {
-                final item = response[index];
+                final item = limited[index];
                 final child = ReplyItemGrpc(
                   replyItem: item,
                   replyLevel: widget.replyLevel,
