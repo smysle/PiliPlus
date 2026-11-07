@@ -241,6 +241,7 @@ abstract final class SettingBoxKey {
       dynamicsWaterfallFlow = 'dynamicsWaterfallFlow',
       upPanelPosition = 'upPanelPosition',
       dynamicsShowAllFollowedUp = 'dynamicsShowAllFollowedUp',
+      dynamicUpListMode = 'dynamicUpListMode',
       useSideBar = 'useSideBar',
       hideSideBarLabel = 'hideSideBarLabel',
       enableMYBar = 'enableMYBar',
@@ -264,6 +265,8 @@ abstract final class LocalCacheKey {
   static const String historyPause = 'historyPause',
       blackMids = 'blackMids',
       danmakuFilterRules = 'danmakuFilterRules',
+      dynamicUpBaseline = 'dynamicUpBaseline',
+      dynamicUpUnread = 'dynamicUpUnread',
       mixinKey = 'mixinKey',
       timeStamp = 'timeStamp';
 }
