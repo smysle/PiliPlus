@@ -26,6 +26,7 @@ abstract final class SettingBoxKey {
       enableAutoExit = 'enableAutoExit',
       enableOnlineTotal = 'enableOnlineTotal',
       keyboardControl = 'keyboardControl',
+      customKeyBindings = 'customKeyBindings',
       pauseOnMinimize = 'pauseOnMinimize',
       pgcSkipType = 'pgcSkipType',
       audioPlayMode = 'audioPlayMode',

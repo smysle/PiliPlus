@@ -11,6 +11,7 @@ import 'package:PiliPlus/pages/setting/models/play_settings.dart';
 import 'package:PiliPlus/pages/setting/models/privacy_settings.dart';
 import 'package:PiliPlus/pages/setting/models/recommend_settings.dart';
 import 'package:PiliPlus/pages/setting/models/reply_settings.dart';
+import 'package:PiliPlus/pages/setting/models/shortcut_settings.dart';
 import 'package:PiliPlus/pages/setting/models/style_settings.dart';
 import 'package:PiliPlus/pages/setting/models/video_settings.dart';
 import 'package:PiliPlus/utils/grid.dart';
@@ -39,6 +40,7 @@ class _SettingsSearchPageState
     ...recommendSettings,
     ...videoSettings,
     ...playSettings,
+    ...shortcutSettings,
     ...styleSettings,
   ];
 

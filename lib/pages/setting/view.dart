@@ -76,8 +76,13 @@ class _SettingPageState extends State<SettingPage> {
     ),
     _SettingsModel(
       type: .dynSetting,
-      subtitle: '过滤、屏蔽、默认展示等',
+      subtitle: '过滤、屏蔽、记录、默认展示等',
       icon: Icon(CustomIcons.motion_photos_on_outlined),
+    ),
+    _SettingsModel(
+      type: .shortcutSetting,
+      subtitle: '启用键盘控制、自定义播放器按键绑定',
+      icon: Icon(Icons.keyboard_alt_outlined),
     ),
     _SettingsModel(
       type: .styleSetting,
@@ -130,6 +135,16 @@ class _SettingPageState extends State<SettingPage> {
                   Expanded(
                     flex: 6,
                     child: switch (_type) {
+                      .privacySetting ||
+                      .recommendSetting ||
+                      .videoSetting ||
+                      .playSetting ||
+                      .shortcutSetting ||
+                      .styleSetting ||
+                      .extraSetting => CommonSetting(
+                        settingType: _type,
+                        showAppBar: false,
+                      ),
                       .webdavSetting => const WebDavSettingPage(
                         showAppBar: false,
                       ),
@@ -153,6 +168,13 @@ class _SettingPageState extends State<SettingPage> {
     if (_isPortrait) {
       Get.to(
         () => switch (type) {
+          .privacySetting ||
+          .recommendSetting ||
+          .videoSetting ||
+          .playSetting ||
+          .shortcutSetting ||
+          .styleSetting ||
+          .extraSetting => CommonSetting(settingType: type),
           .webdavSetting => const WebDavSettingPage(),
           .about => const AboutPage(),
           _ => CommonSetting(settingType: type),

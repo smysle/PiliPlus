@@ -6,6 +6,7 @@ import 'package:PiliPlus/pages/setting/models/play_settings.dart';
 import 'package:PiliPlus/pages/setting/models/privacy_settings.dart';
 import 'package:PiliPlus/pages/setting/models/recommend_settings.dart';
 import 'package:PiliPlus/pages/setting/models/reply_settings.dart';
+import 'package:PiliPlus/pages/setting/models/shortcut_settings.dart';
 import 'package:PiliPlus/pages/setting/models/style_settings.dart';
 import 'package:PiliPlus/pages/setting/models/video_settings.dart';
 
@@ -17,6 +18,7 @@ enum SettingType {
   dmSetting('弹幕设置'),
   replySetting('评论设置'),
   dynSetting('动态设置'),
+  shortcutSetting('快捷键设置'),
   styleSetting('外观设置'),
   extraSetting('其它设置'),
   webdavSetting('WebDAV 设置'),
@@ -34,6 +36,7 @@ enum SettingType {
     .dmSetting => dmSettings,
     .dynSetting => dynSettings,
     .replySetting => replySettings,
+    .shortcutSetting => shortcutSettings,
     .styleSetting => styleSettings,
     .extraSetting => extraSettings,
     .webdavSetting || .about => throw UnimplementedError(),
