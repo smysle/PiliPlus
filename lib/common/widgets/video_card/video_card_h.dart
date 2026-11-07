@@ -190,7 +190,7 @@ class VideoCardH extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               height: 1,
-              color: theme.colorScheme.outline,
+              color: theme.colorScheme.onSurfaceVariant,
               overflow: .ellipsis,
             ),
           ),
@@ -202,10 +202,12 @@ class VideoCardH extends StatelessWidget {
                 StatWidget(
                   type: .play,
                   value: videoItem.stat.view,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
                 StatWidget(
                   type: .danmaku,
                   value: videoItem.stat.danmu,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ],
             ),

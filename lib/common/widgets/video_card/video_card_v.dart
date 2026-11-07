@@ -209,7 +209,7 @@ class VideoCardV extends StatelessWidget {
                     style: TextStyle(
                       height: 1.5,
                       fontSize: theme.textTheme.labelMedium!.fontSize,
-                      color: theme.colorScheme.outline,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -231,12 +231,14 @@ class VideoCardV extends StatelessWidget {
         StatWidget(
           type: .play,
           value: videoItem.stat.view,
+          color: theme.colorScheme.onSurfaceVariant,
         ),
         if (videoItem.goto != 'picture') ...[
           const SizedBox(width: 4),
           StatWidget(
             type: .danmaku,
             value: videoItem.stat.danmu,
+            color: theme.colorScheme.onSurfaceVariant,
           ),
         ],
         if (videoItem is RcmdVideoItemModel) ...[
@@ -246,7 +248,7 @@ class VideoCardV extends StatelessWidget {
             TextSpan(
               style: TextStyle(
                 fontSize: theme.textTheme.labelSmall!.fontSize,
-                color: theme.colorScheme.outline.withValues(alpha: 0.8),
+                color: theme.colorScheme.onSurfaceVariant,
               ),
               text: DateFormatUtils.dateFormat(
                 videoItem.pubdate,
