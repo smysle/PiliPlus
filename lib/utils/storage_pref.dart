@@ -347,6 +347,10 @@ abstract final class Pref {
   static bool get blockToast =>
       _setting.get(SettingBoxKey.blockToast, defaultValue: true);
 
+  /// 空降助手跳过提示的停留时长（秒），0 表示使用组件默认值
+  static int get blockToastDuration =>
+      _setting.get(SettingBoxKey.blockToastDuration, defaultValue: 0);
+
   static String get blockServer => _setting.get(
     SettingBoxKey.blockServer,
     defaultValue: HttpString.sponsorBlockBaseUrl,

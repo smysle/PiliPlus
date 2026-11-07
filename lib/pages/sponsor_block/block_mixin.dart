@@ -258,9 +258,11 @@ mixin BlockMixin on GetxController {
   }
 
   void _showBlockToast(String msg) {
+    final seconds = Pref.blockToastDuration;
     SmartDialog.showToast(
       msg,
       alignment: isFullScreen ? const Alignment(0, 0.7) : null,
+      displayTime: seconds > 0 ? Duration(seconds: seconds) : null,
     );
   }
 
