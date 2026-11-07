@@ -138,6 +138,7 @@ class DownloadService extends GetxService {
     required VideoQuality videoQuality,
     AudioQuality? audioQuality,
     SeasonInfo? seasonInfo,
+    bool audioOnly = false,
   }) {
     final cid = page.cid!;
     if (downloadList.indexWhere((e) => e.cid == cid) != -1) {
@@ -164,6 +165,8 @@ class DownloadService extends GetxService {
     final entry = BiliDownloadEntryInfo(
       mediaType: 2,
       hasDashAudio: false,
+      audioOnly: audioOnly,
+      audioQuality: audioOnly ? audioQuality?.code : null,
       isCompleted: false,
       totalBytes: 0,
       downloadedBytes: 0,
@@ -201,6 +204,7 @@ class DownloadService extends GetxService {
     required pgc.EpisodeItem episode,
     required VideoQuality quality,
     AudioQuality? audioQuality,
+    bool audioOnly = false,
   }) {
     final cid = episode.cid!;
     if (downloadList.indexWhere((e) => e.cid == cid) != -1) {
@@ -235,6 +239,8 @@ class DownloadService extends GetxService {
     final entry = BiliDownloadEntryInfo(
       mediaType: 2,
       hasDashAudio: false,
+      audioOnly: audioOnly,
+      audioQuality: audioOnly ? audioQuality?.code : null,
       isCompleted: false,
       totalBytes: 0,
       downloadedBytes: 0,
@@ -655,6 +661,11 @@ class DownloadService extends GetxService {
 
       switch (mediaFileInfo) {
         case Type1 mediaFileInfo:
+          // 单文件格式无法单独抽取音频，忽略仅音频选项
+          if (entry.audioOnly) {
+            entry.audioOnly = false;
+            await _updateBiliDownloadEntryJson(entry);
+          }
           final first = mediaFileInfo.segmentList.first;
           _downloadManager = DownloadManager(
             url: first.url,
@@ -664,20 +675,33 @@ class DownloadService extends GetxService {
           );
           break;
         case Type2 mediaFileInfo:
-          _downloadManager = DownloadManager(
-            url: mediaFileInfo.video.first.baseUrl,
-            path: path.join(videoDir.path, PathUtils.videoNameType2),
-            onReceiveProgress: _onReceive,
-            onDone: _onDone,
-          );
           final audio = mediaFileInfo.audio;
-          if (audio != null && audio.isNotEmpty) {
-            _audioDownloadManager = DownloadManager(
+          if (entry.audioOnly) {
+            if (audio == null || audio.isEmpty) {
+              throw StateError('没有可用的音频流');
+            }
+            // 仅下载音频：把音频流交给主下载管理器，复用进度/完成逻辑
+            _downloadManager = DownloadManager(
               url: audio.first.baseUrl,
               path: path.join(videoDir.path, PathUtils.audioNameType2),
-              onReceiveProgress: null,
-              onDone: _onAudioDone,
+              onReceiveProgress: _onReceive,
+              onDone: _onDone,
             );
+          } else {
+            _downloadManager = DownloadManager(
+              url: mediaFileInfo.video.first.baseUrl,
+              path: path.join(videoDir.path, PathUtils.videoNameType2),
+              onReceiveProgress: _onReceive,
+              onDone: _onDone,
+            );
+            if (audio != null && audio.isNotEmpty) {
+              _audioDownloadManager = DownloadManager(
+                url: audio.first.baseUrl,
+                path: path.join(videoDir.path, PathUtils.audioNameType2),
+                onReceiveProgress: null,
+                onDone: _onAudioDone,
+              );
+            }
           }
           late final first = mediaFileInfo.video.first;
           entry.pageData
