@@ -113,7 +113,11 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
   }
 
   // 设定倍速弹窗
-  void showBottomSheet(ThemeData theme, int index) {
+  // [onlyId] 非空时只显示对应的一项菜单，用于从「默认倍速」行直接修改。
+  void showBottomSheet(ThemeData theme, int index, {int? onlyId}) {
+    final menuItems = onlyId == null
+        ? sheetMenu
+        : sheetMenu.where((item) => item.id == onlyId).toList();
     showModalBottomSheet(
       context: context,
       useSafeArea: true,
@@ -127,7 +131,7 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 10),
-            ...sheetMenu.map(
+            ...menuItems.map(
               (item) => ListTile(
                 enabled: enableAutoLongPressSpeed && item.id == 2
                     ? false
@@ -218,6 +222,12 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
             ListTile(
               title: const Text('默认倍速'),
               subtitle: Text(playSpeedDefault.toString()),
+              trailing: const Icon(Icons.chevron_right, size: 20),
+              onTap: () => showBottomSheet(
+                theme,
+                speedList.indexOf(playSpeedDefault),
+                onlyId: 1,
+              ),
             ),
             SetSwitchItem(
               title: '动态长按倍速',
@@ -231,6 +241,12 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
               ListTile(
                 title: const Text('默认长按倍速'),
                 subtitle: Text(longPressSpeedDefault.toString()),
+                trailing: const Icon(Icons.chevron_right, size: 20),
+                onTap: () => showBottomSheet(
+                  theme,
+                  speedList.indexOf(longPressSpeedDefault),
+                  onlyId: 2,
+                ),
               ),
             Padding(
               padding: const EdgeInsets.only(
