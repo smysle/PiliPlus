@@ -182,6 +182,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   void positionListener(Duration position) {
     videoDetailController.playedTime = position;
+    videoDetailController.danmakuMaskController.updatePosition(position);
   }
 
   @override
@@ -419,6 +420,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     _setPlayCallBack();
 
     introController.startTimer();
+
+    videoDetailController.danmakuMaskController.syncEnabledFromPreference(
+      videoDetailController.plPlayerController.positionInMilliseconds,
+    );
 
     if (mounted &&
         Platform.isAndroid &&
