@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:PiliPlus/models/common/video/cdn_type.dart';
-import 'package:PiliPlus/models/common/video/video_quality.dart';
+import 'package:PiliPlus/models/common/video/base_quality.dart';
 import 'package:PiliPlus/models/video/play/url.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/utils/storage.dart';
