@@ -68,7 +68,6 @@ import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:collection/collection.dart';
-import 'package:easy_debounce/easy_throttle.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -170,28 +169,32 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   }
 
   void _onVolumeChanged(double value) {
-    if (mounted && !plPlayerController.volumeInterceptEventStream) {
-      plPlayerController.volume.value = value;
-      if (Platform.isIOS && !FlutterVolumeController.showSystemUI) {
-        plPlayerController
-          ..volumeIndicator.value = true
-          ..volumeTimer?.cancel()
-          ..volumeTimer = Timer(
-            const Duration(milliseconds: 800),
-            () {
-              if (mounted) {
-                plPlayerController.volumeIndicator.value = false;
-              }
-            },
-          );
-      }
+    if (!mounted) return;
+    if (Platform.isAndroid
+        ? plPlayerController.isSelfAppliedVolume(value)
+        : plPlayerController.volumeInterceptEventStream) {
+      return;
+    }
+    plPlayerController.syncSystemVolume(value);
+    if (Platform.isIOS && !FlutterVolumeController.showSystemUI) {
+      plPlayerController
+        ..volumeIndicator.value = true
+        ..volumeTimer?.cancel()
+        ..volumeTimer = Timer(
+          const Duration(milliseconds: 800),
+          () {
+            if (mounted) {
+              plPlayerController.volumeIndicator.value = false;
+            }
+          },
+        );
     }
   }
 
   void _getCurrVolume() {
     FlutterVolumeController.getVolume().then((res) {
-      if (mounted) {
-        plPlayerController.volume.value = res!;
+      if (mounted && res != null) {
+        plPlayerController.syncSystemVolume(res);
       }
     });
   }
@@ -1009,6 +1012,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           // 左边区域
           if (PlatformUtils.isDesktop) {
             _gestureType = .right;
+            plPlayerController.beginVolumeGesture();
           } else {
             _gestureType = .left;
           }
@@ -1024,6 +1028,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           }
           // 右边区域
           _gestureType = .right;
+          plPlayerController.beginVolumeGesture();
         }
       }
       return;
@@ -1105,23 +1110,17 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       }
     } else if (_gestureType == .right) {
       // 右边区域
-      EasyThrottle.throttle(
-        'setVolume',
-        const Duration(milliseconds: 20),
-        () => plPlayerController.setVolume(
-          clampDouble(
-            plPlayerController.volume.value - delta.dy / (maxHeight * 0.5),
-            0.0,
-            plPlayerController.maxVolume,
-          ),
-        ),
-      );
+      // 不用 throttle 丢弃滑动帧，否则同样的滑动距离，快慢不同丢的帧数不同，
+      // 音量变化就不一致了；写入系统由控制器自己合并
+      plPlayerController.adjustVolume(-delta.dy / (maxHeight * 0.5));
     }
   }
 
   void _onPanEnd(ScaleEndDetails details) {
     if (_gestureType == .horizontal) {
       _onHorizontalDragEnd();
+    } else if (_gestureType == .right) {
+      plPlayerController.endVolumeGesture();
     }
     _initialFocalPoint = null;
     _gestureType = null;
@@ -1297,6 +1296,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         _gestureType = .horizontal;
       } else if (dy > 3 * dx) {
         _gestureType = .right;
+        plPlayerController.beginVolumeGesture();
       }
       return;
     }
@@ -1310,17 +1310,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         return;
       }
 
-      EasyThrottle.throttle(
-        'setVolume',
-        const Duration(milliseconds: 20),
-        () => plPlayerController.setVolume(
-          clampDouble(
-            plPlayerController.volume.value -
-                event.localPanDelta.dy / (maxHeight * 0.5),
-            0.0,
-            plPlayerController.maxVolume,
-          ),
-        ),
+      plPlayerController.adjustVolume(
+        -event.localPanDelta.dy / (maxHeight * 0.5),
       );
     }
   }
@@ -1328,19 +1319,15 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   void _onPointerPanZoomEnd(PointerPanZoomEndEvent event) {
     if (_gestureType == .horizontal) {
       _onHorizontalDragEnd();
+    } else if (_gestureType == .right) {
+      plPlayerController.endVolumeGesture();
     }
     _gestureType = null;
   }
 
   void _onPointerSignal(PointerSignalEvent event) {
     if (event is PointerScrollEvent) {
-      final offset = -event.scrollDelta.dy / 4000;
-      final volume = clampDouble(
-        plPlayerController.volume.value + offset,
-        0.0,
-        plPlayerController.maxVolume,
-      );
-      plPlayerController.setVolume(volume);
+      plPlayerController.adjustVolume(-event.scrollDelta.dy / 4000);
     }
   }
 
@@ -1577,7 +1564,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                         ),
                         const SizedBox(width: 2.0),
                         Text(
-                          '${(volume * 100.0).round()}%',
+                          '${plPlayerController.volumePercent}%',
                           style: const TextStyle(
                             fontSize: 13.0,
                             color: Colors.white,
