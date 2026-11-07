@@ -82,6 +82,7 @@ abstract final class SettingBoxKey {
       showVideoReply = 'showVideoReply',
       maxRelatedVideo = 'maxRelatedVideo',
       maxReplyCount = 'maxReplyCount',
+      showReplyActionBar = 'showReplyActionBar',
       showBangumiReply = 'showBangumiReply',
       alwaysExpandIntroPanel = 'alwaysExapndIntroPanel',
       expandIntroPanelH = 'exapndIntroPanelH',
