@@ -42,6 +42,7 @@ import 'package:PiliPlus/utils/num_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -527,12 +528,13 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
               text: !isLoading ? NumUtils.numFormat(stat!.favorite) : null,
             ),
           ),
-          ActionItem(
-            icon: const Icon(CustomIcons.download),
-            onTap: () => videoDetailCtr.onDownload(context),
-            text: '缓存',
-            semanticsLabel: '缓存',
-          ),
+          if (Pref.showVideoCacheBtn)
+            ActionItem(
+              icon: const Icon(CustomIcons.download),
+              onTap: () => videoDetailCtr.onDownload(context),
+              text: '缓存',
+              semanticsLabel: '缓存',
+            ),
           Obx(
             () => ActionItem(
               icon: const Icon(FontAwesomeIcons.clock),

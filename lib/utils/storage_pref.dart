@@ -557,6 +557,10 @@ abstract final class Pref {
   static bool get showDynActionBar =>
       _setting.get(SettingBoxKey.showDynActionBar, defaultValue: true);
 
+  /// 播放页是否展示「缓存」按钮。关闭后仍可通过更多菜单进入离线缓存。
+  static bool get showVideoCacheBtn =>
+      _setting.get(SettingBoxKey.showVideoCacheBtn, defaultValue: true);
+
   static bool get darkVideoPage =>
       _setting.get(SettingBoxKey.darkVideoPage, defaultValue: false);
 
