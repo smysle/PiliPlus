@@ -162,10 +162,14 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   @override
   bool customHandleResponse(bool isRefresh, Success<R> response) {
     final data = response.response as MainListReply;
+    _isAppending = !isRefresh;
     count.value = data.subjectControl.count.toInt();
     if (isRefresh) {
       handleSubjectControl(data.subjectControl);
       if (hasUpTop = data.hasUpTop()) {
+        // 置顶评论可能同时出现在普通列表里，先移除同 id 的项再插入，
+        // 避免同一条评论显示两次。
+        data.replies.removeWhere((e) => e.id == data.upTop.id);
         data.replies.insert(0, data.upTop);
       }
       if (subjectControl?.title == ReplySortType.select.desc) {
@@ -186,6 +190,18 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   void handlePagination({required CursorReply cursor, required String offset}) {
     if (cursor.isEnd || offset.isEmpty || nextOffset == offset) isEnd = true;
     nextOffset = offset;
+  }
+
+  /// 本次 [customHandleResponse] 是否发生在分页追加（而非刷新）。
+  bool _isAppending = false;
+
+  @override
+  void handleListResponse(List<ReplyInfo> dataList) {
+    if (!_isAppending) return;
+    if (loadingState.value case Success(:final response)) {
+      final ids = {for (final item in response ?? const <ReplyInfo>[]) item.id};
+      dataList.retainWhere((item) => ids.add(item.id));
+    }
   }
 
   void handleSubjectControl(SubjectControl control) {
