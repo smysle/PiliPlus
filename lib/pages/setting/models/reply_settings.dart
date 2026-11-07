@@ -24,6 +24,13 @@ List<SettingsModel> get replySettings => [
     defaultVal: true,
   ),
   const SwitchModel(
+    title: '评论操作栏',
+    subtitle: '关闭后每条评论下方不再显示回复、点赞等按钮',
+    leading: Icon(MdiIcons.commentTextOutline),
+    setKey: SettingBoxKey.showReplyActionBar,
+    defaultVal: true,
+  ),
+  const SwitchModel(
     title: '显示番剧评论',
     leading: Icon(MdiIcons.commentTextOutline),
     setKey: SettingBoxKey.showBangumiReply,

@@ -395,6 +395,10 @@ abstract final class Pref {
   static bool get showVideoReply =>
       _setting.get(SettingBoxKey.showVideoReply, defaultValue: true);
 
+  /// 评论区每条评论下方的回复/点赞操作栏是否展示
+  static bool get showReplyActionBar =>
+      _setting.get(SettingBoxKey.showReplyActionBar, defaultValue: true);
+
   static bool get showBangumiReply =>
       _setting.get(SettingBoxKey.showBangumiReply, defaultValue: true);
 

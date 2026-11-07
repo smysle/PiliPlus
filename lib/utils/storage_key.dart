@@ -79,6 +79,7 @@ abstract final class SettingBoxKey {
       showViewPoints = 'showViewPoints',
       showRelatedVideo = 'showRelatedVideo',
       showVideoReply = 'showVideoReply',
+      showReplyActionBar = 'showReplyActionBar',
       showBangumiReply = 'showBangumiReply',
       alwaysExpandIntroPanel = 'alwaysExapndIntroPanel',
       expandIntroPanelH = 'exapndIntroPanelH',

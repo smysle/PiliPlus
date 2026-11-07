@@ -787,6 +787,10 @@ class ReplyItemGrpc extends StatelessWidget {
     ReplyControl replyControl,
     bool noPad,
   ) {
+    // 关闭时不渲染回复/点赞操作栏，评论内容与折叠展开行不受影响
+    if (!Pref.showReplyActionBar) {
+      return const SizedBox.shrink();
+    }
     final textStyle = _getActionStyle(colorScheme);
 
     Widget? dialogBtn;
