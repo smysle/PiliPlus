@@ -9,6 +9,7 @@ import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo, MainListReply;
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/pages/common/fab_mixin.dart';
+import 'package:PiliPlus/pages/common/reply/classic_reply_head.dart';
 import 'package:PiliPlus/pages/common/reply/reply_footer_mixin.dart';
 import 'package:PiliPlus/pages/common/reply/vote/reply_vote_item.dart';
 import 'package:PiliPlus/pages/video/reply/controller.dart';
@@ -160,11 +161,17 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
           // 限制评论展示数量，0 表示不限制；限制后 footer 不再渲染，
           // 避免出现「没有更多了」与隐藏条数矛盾的提示
           final maxReply = Pref.maxReplyCount;
-          final limited = maxReply > 0 && maxReply < response.length
-              ? response.sublist(0, maxReply)
-              : response;
-          var count =
-              limited.length + (limited.length == response.length ? 1 : 0);
+          final truncated = maxReply > 0 && maxReply < response.length;
+          final source = truncated ? response.sublist(0, maxReply) : response;
+          final head = buildClassicReplyHead(
+            controller: controller,
+            colorScheme: colorScheme,
+            buildItem: _buildClassicItem,
+          );
+          // 经典布局下 head 已展示的评论从下面的时间列表里剔除
+          final indices = controller.classicListIndices(source);
+          final listLength = indices?.length ?? source.length;
+          var count = listLength + (truncated ? 0 : 1) + head.length;
           final voteCard = controller.voteCard;
           final hasVote = voteCard != null;
           if (hasVote) {
@@ -179,10 +186,16 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                   index--;
                 }
               }
-              if (index == limited.length) {
+              if (index < head.length) {
+                return head[index];
+              }
+              index -= head.length;
+              if (index == listLength) {
                 return buildFooter();
               } else {
-                final item = limited[index];
+                // 映射回 response 里的真实下标，删除/置顶才不会错位
+                index = indices?[index] ?? index;
+                final item = source[index];
                 final child = ReplyItemGrpc(
                   replyItem: item,
                   replyLevel: widget.replyLevel,
@@ -232,4 +245,22 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
         );
     }
   }
+
+  /// A pinned or hot reply in the classic head.
+  Widget _buildClassicItem(ReplyInfo item) => ReplyItemGrpc(
+    replyItem: item,
+    replyLevel: widget.replyLevel,
+    replyReply: controller.replyReply,
+    onReply: controller.onReply,
+    onDelete: controller.onRemoveClassic,
+    upMid: controller.upMid,
+    getTag: () => heroTag,
+    onCheckReply: controller.onCheckReply,
+    onToggleTop: (item) => controller.onToggleTop(
+      item,
+      -1,
+      controller.videoCtr.aid,
+      controller.replyType,
+    ),
+  );
 }
