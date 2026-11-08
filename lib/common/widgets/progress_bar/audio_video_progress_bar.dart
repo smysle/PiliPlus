@@ -445,6 +445,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   }
 
   int _currentThumbDurationInMilliseconds() {
+    if (total <= 0) return 0;
     return (_thumbValue * total * 1000).round();
   }
 
@@ -461,6 +462,9 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     double barStart = barCapRadius;
     double barEnd = size.width - barCapRadius;
     final barWidth = barEnd - barStart;
+    // 折展切换或安全区内缩时宽度可能退化为 0，除法会产生 NaN/Infinity，
+    // 之后 seek 目标会变成脏值（进度条乱跳或看似没反应）
+    if (barWidth <= 0) return;
     final position = (dx - barStart).clamp(0.0, barWidth);
     _thumbValue = position / barWidth;
     _progress = _currentThumbDuration();

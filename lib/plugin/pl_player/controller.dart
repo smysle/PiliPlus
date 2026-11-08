@@ -1869,17 +1869,37 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     // 缓冲稳定时会永远等不到，导致 seek 根本不执行（进度条动了、
     // 画面不动）。上游 ef30e2482 已移除同样的等待。
     danmakuController?.clear();
+    final player = _videoPlayerController;
+    if (player == null) {
+      // 没有播放器时 seek 是空操作，界面上的乐观值必须回滚，否则进度条
+      // 停在目标位置而画面不动
+      _syncPositionFromPlayer();
+      return;
+    }
     try {
-      await _videoPlayerController?.seek(position);
+      await player.seek(position);
       _updateIOSPip(position);
     } catch (e) {
       if (kDebugMode) debugPrint('seek failed: $e');
+      // stream.position 是 distinct 的：失败时 mpv 位置没变，不会推送纠正
+      // 事件，只能主动回滚
+      _syncPositionFromPlayer();
     }
+  }
+
+  /// 把界面位置拉回播放器实际位置。seek 失败或没有播放器时用来撤销乐观更新。
+  void _syncPositionFromPlayer() {
+    final real = _videoPlayerController?.state.position;
+    if (real == null) return;
+    position.value = real.inSeconds;
+    seekPosition.value = real.inSeconds;
   }
 
   /// 跳转至指定位置
   Future<void> seekTo(Duration position) async {
     if (_playerCount == 0) {
+      // 同上：没有播放器时 seek 不生效，撤销调用方刚写入的乐观值
+      _syncPositionFromPlayer();
       return;
     }
     if (position < Duration.zero) {

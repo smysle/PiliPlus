@@ -45,8 +45,11 @@ class BottomControl extends StatelessWidget {
   void onSeek(int milliseconds) {
     controller
       ..hoverDx = null
+      ..onSeekEnd();
+    // 时长未知时进度条比例无意义，seek 过去只会回到片头
+    if (milliseconds <= 0 || controller.duration.value <= 0) return;
+    controller
       ..position.value = milliseconds ~/ 1000
-      ..onSeekEnd()
       ..seekTo(Duration(milliseconds: milliseconds));
   }
 
