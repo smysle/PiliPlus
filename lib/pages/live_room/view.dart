@@ -778,32 +778,39 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       padding: isFullScreen
           ? EdgeInsets.zero
           : EdgeInsets.only(left: padding.left, right: padding.right),
-      child: Row(
-        children: [
-          Container(
-            width: width,
-            height: height,
-            // 全屏时容器已经铺满，再留 padding.bottom 会顶掉一截视频高度，
-            // 表现为底部一条黑边（顶部没有）。全屏应直接铺到边缘。
-            margin: isFullScreen
-                ? EdgeInsets.zero
-                : EdgeInsets.only(bottom: padding.bottom),
-            child: videoPlayerPanel(
-              isFullScreen,
-              fill: Colors.transparent,
+      // The padding above takes the side insets, so the player controls must
+      // not add them again.
+      child: MediaQuery.removePadding(
+        context: context,
+        removeLeft: !isFullScreen,
+        removeRight: !isFullScreen,
+        child: Row(
+          children: [
+            Container(
               width: width,
               height: height,
+              // 全屏时容器已经铺满，再留 padding.bottom 会顶掉一截视频高度，
+              // 表现为底部一条黑边（顶部没有）。全屏应直接铺到边缘。
+              margin: isFullScreen
+                  ? EdgeInsets.zero
+                  : EdgeInsets.only(bottom: padding.bottom),
+              child: videoPlayerPanel(
+                isFullScreen,
+                fill: Colors.transparent,
+                width: width,
+                height: height,
+              ),
             ),
-          ),
-          Offstage(
-            offstage: isFullScreen,
-            child: SizedBox(
-              width: rightWidth,
-              height: videoHeight,
-              child: _buildBottomWidget,
+            Offstage(
+              offstage: isFullScreen,
+              child: SizedBox(
+                width: rightWidth,
+                height: videoHeight,
+                child: _buildBottomWidget,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
