@@ -78,6 +78,33 @@ class SearchVideoController
     return response.list;
   }
 
+  @override
+  bool customHandleResponse(bool isRefresh, Success<SearchVideoData> response) {
+    if (super.customHandleResponse(isRefresh, response)) return true;
+    final list = response.response.list;
+    if (list != null && list.isNotEmpty) {
+      // 只收录非空 bvid：搜索结果里夹带的直播房间没有视频 ID，不应参与去重
+      final ids = <String>{
+        if (!isRefresh)
+          ...?loadingState.value.dataOrNull
+              ?.map((video) => video.bvid)
+              .whereType<String>()
+              .where((bvid) => bvid.isNotEmpty),
+      };
+      list.removeWhere((video) {
+        final bvid = video.bvid;
+        return bvid != null && bvid.isNotEmpty && !ids.add(bvid);
+      });
+      if (!isRefresh && list.isEmpty) {
+        // 整页都是已见过的条目：本轮不追加任何内容，交给调用方结束加载。
+        // queryData 仍会 page++，下一次 onLoadMore 从新页码继续请求。
+        loadingState.refresh();
+        return true;
+      }
+    }
+    return false;
+  }
+
   final Rx<ArchiveFilterType> selectedType = ArchiveFilterType.totalrank.obs;
   VideoPubTimeType? pubTimeType = VideoPubTimeType.all;
   late DateTime pubBeginDate;
