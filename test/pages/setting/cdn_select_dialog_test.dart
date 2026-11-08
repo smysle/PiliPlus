@@ -167,18 +167,26 @@ Future<void> _flushNetwork(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 1));
 }
 
-Future<void> _show(WidgetTester tester, _Client client) =>
-    HttpOverrides.runZoned(
-      () async {
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(body: CdnSelectDialog(sample: _sample())),
-          ),
-        );
-        await _flushNetwork(tester);
-      },
-      createHttpClient: (_) => client,
+Future<void> _show(
+  WidgetTester tester,
+  _Client client, {
+  bool startTest = true,
+}) => HttpOverrides.runZoned(
+  () async {
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: CdnSelectDialog(sample: _sample()))),
     );
+    await _flushNetwork(tester);
+    // 测速改为显式触发（PR #3091）：点「全部测速」开始，不自动选中
+    if (startTest) {
+      final button = find.widgetWithText(TextButton, '全部测速');
+      expect(button, findsOneWidget);
+      await tester.tap(button);
+      await _flushNetwork(tester);
+    }
+  },
+  createHttpClient: (_) => client,
+);
 
 void main() {
   late Directory tempDir;
@@ -362,7 +370,7 @@ void main() {
       () => GStorage.setting.put(SettingBoxKey.cdnSpeedTest, false),
     );
     final client = _Client();
-    await _show(tester, client);
+    await _show(tester, client, startTest: false);
     expect(client.requests, isEmpty);
     expect(find.byType(LinearProgressIndicator), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());

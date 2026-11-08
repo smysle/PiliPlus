@@ -514,11 +514,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   /// [videoController] instance of Player
   VideoController? get videoController => _videoController;
 
-  bool _isMuted = false;
-
-  bool get isMuted => _isMuted;
-
-  set isMuted(bool value) => _isMuted = value;
+  bool isMuted = false;
 
   /// 听视频
   late final RxBool onlyPlayAudio = false.obs;
@@ -1243,7 +1239,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
                 Platform.isAndroid &&
                     !isLive &&
                     !onlyPlayAudio.value &&
-                    !(dataSource is FileSource)
+                    dataSource is! FileSource
                 ? Pref.dolbyVisionOutput
                 : DolbyVisionOutput.mpv,
           );
@@ -2109,7 +2105,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   /// 设置里的音量滑杆改变后，把新音量应用到当前后端
   Future<void> updatePlayerVolume() async {
-    if (_videoPlayerController case final player? when !_isMuted) {
+    if (_videoPlayerController case final player? when !isMuted) {
       await _applyPlayerVolume(player, _unmutedVolume(player));
     }
   }

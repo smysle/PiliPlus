@@ -20,6 +20,7 @@ class SelectDialog<T> extends StatelessWidget {
   final List<(T, String)> values;
   final Widget? Function(BuildContext context, int index, T value)?
   subtitleBuilder;
+  final List<Widget>? actions;
   final bool toggleable;
 
   const SelectDialog({
@@ -29,6 +30,7 @@ class SelectDialog<T> extends StatelessWidget {
     required this.title,
     this.titleBottom,
     this.subtitleBuilder,
+    this.actions,
     this.toggleable = false,
   });
 
@@ -73,6 +75,7 @@ class SelectDialog<T> extends StatelessWidget {
           ),
         ),
       ),
+      actions: actions,
     );
   }
 }
@@ -110,12 +113,14 @@ class _CdnSpeedTestStatus {
 class _CdnSelectDialogState extends State<CdnSelectDialog> {
   static const _sampleSize = 8 * 1024 * 1024;
   late final List<ValueNotifier<_CdnSpeedTestStatus>> _cdnResList;
+  late final List<double?> _cdnSpeedList;
   late final List<CancelToken?> _tokens;
   late final bool _cdnSpeedTest;
   Timer? _progressTimer;
   int _completed = 0;
   CDNService? _testingCdn;
   bool _sampleFailed = false;
+  bool _isTesting = false;
 
   @override
   void initState() {
@@ -137,8 +142,8 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
         length,
         (_) => ValueNotifier(const _CdnSpeedTestStatus.message('等待测速')),
       );
+      _cdnSpeedList = List.filled(length, null);
       _tokens = List.generate(length, (_) => CancelToken());
-      _startSpeedTest();
     }
     super.initState();
   }
@@ -171,10 +176,31 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     return item;
   }
 
-  Future<void> _startSpeedTest() async {
+  Future<void> _startSpeedTest({required bool autoSelect}) async {
+    if (_isTesting) return;
+    setState(() => _isTesting = true);
+
+    for (int i = 0; i < _cdnResList.length; i++) {
+      _tokens[i]?.cancel();
+      _tokens[i] = CancelToken();
+      _cdnResList[i].value = const _CdnSpeedTestStatus.message('等待测速');
+      _cdnSpeedList[i] = null;
+    }
+
+    CDNService? fastestCdn;
     try {
       final videoItem = widget.sample ?? await _getSampleUrl();
       await _testAllCdnServices(videoItem);
+      if (autoSelect) {
+        double? fastestSpeed;
+        for (final item in CDNService.values) {
+          final speed = _cdnSpeedList[item.index];
+          if (speed != null && (fastestSpeed == null || speed > fastestSpeed)) {
+            fastestCdn = item;
+            fastestSpeed = speed;
+          }
+        }
+      }
     } catch (e) {
       if (kDebugMode) debugPrint('CDN speed test failed: $e');
       if (!mounted) return;
@@ -182,6 +208,12 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
         notifier.value = const _CdnSpeedTestStatus.message('未测速：无法获取视频流');
       }
       setState(() => _sampleFailed = true);
+    } finally {
+      if (mounted) setState(() => _isTesting = false);
+    }
+
+    if (fastestCdn != null && mounted) {
+      Navigator.of(context).pop(fastestCdn);
     }
   }
 
@@ -278,9 +310,11 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
   }
 
   void _updateSpeedResult(int index, int downloaded, int duration) {
-    final speed = (downloaded / (duration > 0 ? duration : 1))
-        .toStringAsPrecision(3);
-    _cdnResList[index].value = _CdnSpeedTestStatus.message('平均 $speed MB/s');
+    final speed = downloaded / (duration > 0 ? duration : 1);
+    _cdnSpeedList[index] = speed;
+    _cdnResList[index].value = _CdnSpeedTestStatus.message(
+      '平均 ${speed.toStringAsPrecision(3)} MB/s',
+    );
   }
 
   void _handleSpeedTestError(dynamic error, int index) {
@@ -392,6 +426,22 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
                 },
               );
             }
+          : null,
+      actions: _cdnSpeedTest
+          ? [
+              TextButton(
+                onPressed: _isTesting
+                    ? null
+                    : () => _startSpeedTest(autoSelect: false),
+                child: const Text('全部测速'),
+              ),
+              TextButton(
+                onPressed: _isTesting
+                    ? null
+                    : () => _startSpeedTest(autoSelect: true),
+                child: Text(_isTesting ? '测速中...' : '一键自动测速并选择'),
+              ),
+            ]
           : null,
     );
   }

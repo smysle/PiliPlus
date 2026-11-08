@@ -140,6 +140,7 @@ class PlDanmakuController {
     _plPlayerController.recordDanmakuAssistantBatch(
       samples: samples,
       hits: hits,
+    );
   }
 
   List<DanmakuElem>? getCurrentDanmaku(int progress) {
