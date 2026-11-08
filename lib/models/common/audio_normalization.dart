@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:PiliPlus/models/video/play/url.dart' show Volume;
 import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:media_kit/media_kit.dart' show Player;
+import 'package:media_kit/media_kit.dart' show PlatformPlayer, Player;
 
 enum AudioNormalization {
   disable('禁用'),
@@ -81,7 +81,8 @@ mixin AudioNormalizationMixin {
     return {_kNormalizationKey: audioNormalization};
   }
 
-  String? _alimiter;
+  /// 每个播放器各自的 af 链状态；切换后端时不能串味
+  final _alimiter = Expando<String>();
 
   /// mpv 的 volume 属性是三次方曲线（`gain = (volume / 100) ^ 3`），且这层
   /// 增益直接乘在 PCM 样值上：200% 就是 8 倍（+18dB），300% 是 27 倍
@@ -100,22 +101,24 @@ mixin AudioNormalizationMixin {
   /// （见 mpv 手册 --lavfi-complex 一节），两层互不冲突。
   ///
   /// [volume] 为线性倍数，1.0 即 100%
-  Future<void>? setVolumeCapped(Player? player, double volume) {
+  Future<void>? setVolumeCapped(PlatformPlayer? player, double volume) {
     assert(volume >= 0);
     if (player == null) return null;
+    // 非 mpv 后端没有 af 滤镜链，直接交给后端自己的音量
+    if (player is! Player) return player.setVolume(volume * 100);
     final boost = _boostAf(volume);
     if (boost == null) {
-      if (_alimiter != null) {
+      if (_alimiter[player] != null) {
         player.setProperty('af', '');
-        _alimiter = null;
+        _alimiter[player] = null;
       }
       return player.setVolume(volume * 100);
     } else {
       // 拖动音量时增益连续变化，重建滤镜链开销偏大，
       // 增益按 0.5dB 取整，值未变化时跳过
-      if (_alimiter != boost) {
+      if (_alimiter[player] != boost) {
         player.setProperty('af', boost);
-        _alimiter = boost;
+        _alimiter[player] = boost;
       }
       return player.setVolume(100);
     }

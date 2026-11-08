@@ -67,7 +67,7 @@ import 'package:hive_ce/hive.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide showBottomSheet;
-import 'package:media_kit/media_kit.dart' show NativePlayer;
+import 'package:media_kit/media_kit.dart' show NativePlayer, PlatformPlayer;
 
 mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
   PlPlayerController get plPlayerController;
@@ -594,7 +594,7 @@ class HeaderControlState extends State<HeaderControl>
                                 if (onlyPlayAudio &&
                                     player.state.tracks.video.length <= 2) {
                                   videoDetailCtr.playerInit();
-                                } else {
+                                } else if (player is NativePlayer) {
                                   player.setProperty(
                                     'file-local-options/vid',
                                     onlyPlayAudio ? 'auto' : 'no',
@@ -782,10 +782,12 @@ class HeaderControlState extends State<HeaderControl>
 
   static void showPlayerInfo(
     BuildContext context, {
-    required NativePlayer player,
+    required PlatformPlayer player,
   }) {
-    final hwdec = player.getProperty('hwdec-current');
-    final volume = player.getProperty('volume');
+    // hwdec / volume 是 mpv 属性，原生 HDR 后端没有对应概念
+    final mpv = player is NativePlayer ? player : null;
+    final hwdec = mpv?.getProperty('hwdec-current') ?? '不支持';
+    final volume = mpv?.getProperty('volume') ?? '不支持';
     showDialog(
       context: context,
       builder: (context) {
