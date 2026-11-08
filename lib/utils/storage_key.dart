@@ -288,6 +288,7 @@ abstract final class LocalCacheKey {
       danmakuFilterRules = 'danmakuFilterRules',
       dynamicUpBaseline = 'dynamicUpBaseline',
       dynamicUpUnread = 'dynamicUpUnread',
+      danmakuAssistantConfig = 'danmakuAssistantConfig',
       mixinKey = 'mixinKey',
       timeStamp = 'timeStamp';
 }
