@@ -1,3 +1,5 @@
+import 'package:PiliPlus/common/widgets/rail_page_view.dart';
+import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/common/skeleton/video_card_v.dart';
 import 'package:PiliPlus/common/sliver_single_child_delegate.dart';
 import 'package:PiliPlus/common/style.dart';
@@ -52,10 +54,7 @@ class _LivePageState extends State<LivePage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Container(
-      clipBehavior: Clip.hardEdge,
-      margin: const EdgeInsets.symmetric(horizontal: Style.safeSpace),
-      decoration: const BoxDecoration(borderRadius: Style.mdRadius),
+    return RailFeedFrame(
       child: refreshIndicator(
         key: controller.refreshKey,
         onRefresh: controller.onRefresh,
@@ -176,7 +175,7 @@ class _LivePageState extends State<LivePage>
             context: context,
             tooltip: '全部标签',
             icon: const Icon(Icons.widgets),
-            onPressed: () => Get.to(const LiveAreaPage()),
+            onPressed: () => Get.toSafe(const LiveAreaPage()),
           ),
         ],
       ),
@@ -305,7 +304,7 @@ class _LivePageState extends State<LivePage>
             ),
           ),
           moreTextButton(
-            onTap: () => Get.to(const LiveFollowPage()),
+            onTap: () => Get.toSafe(const LiveFollowPage()),
             color: colorScheme.outline,
           ),
         ],
@@ -337,7 +336,7 @@ class _LivePageState extends State<LivePage>
                 return Align(
                   alignment: const Alignment(0, -0.3),
                   child: GestureDetector(
-                    onTap: () => Get.to(const LiveFollowPage()),
+                    onTap: () => Get.toSafe(const LiveFollowPage()),
                     child: Container(
                       width: 40,
                       height: 40,

@@ -1,3 +1,4 @@
+import 'package:PiliPlus/utils/ios/native_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
@@ -112,7 +113,9 @@ class _SubDetailPageState extends State<SubDetailPage>
     if (info != null) return _buildAppBar(theme, padding, info);
     return Obx(() {
       return switch (controller.loadingState.value) {
-        Loading() || Error() => const SliverAppBar(),
+        Loading() || Error() => SliverAppBar(
+          automaticallyImplyLeading: !IOSNativeTabBar.hasNativeBack(context),
+        ),
         Success() => _buildAppBar(
           theme,
           padding,
@@ -140,6 +143,7 @@ class _SubDetailPageState extends State<SubDetailPage>
       );
     }
     return SliverAppBar.medium(
+      automaticallyImplyLeading: !IOSNativeTabBar.hasNativeBack(context),
       expandedHeight: kToolbarHeight + 132,
       pinned: true,
       title: Column(

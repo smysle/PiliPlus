@@ -1,3 +1,5 @@
+import 'package:PiliPlus/common/widgets/rail_page_view.dart';
+
 import 'dart:math';
 
 import 'package:PiliPlus/common/assets.dart';
