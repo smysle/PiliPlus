@@ -70,7 +70,7 @@ List<SettingsModel> get videoSettings => [
   const SwitchModel(
     title: 'CDN 测速',
     leading: Icon(Icons.speed),
-    subtitle: '测速通过模拟加载视频实现，注意流量消耗，结果仅供参考',
+    subtitle: '开启后可在 CDN 设置中手动发起测速，注意流量消耗，结果仅供参考',
     setKey: SettingBoxKey.cdnSpeedTest,
     defaultVal: true,
   ),
@@ -333,7 +333,9 @@ Future<void> _showAudioQaDialog(
     builder: (context) => SelectDialog<int>(
       title: '默认音质',
       value: Pref.defaultAudioQa,
-      values: AudioQuality.values.map((e) => (e.code, e.desc)).toList(),
+      values: AudioQuality.defaultAudioQualityOptions
+          .map((e) => (e.code, e.desc))
+          .toList(),
     ),
   );
   if (res != null) {
@@ -351,7 +353,9 @@ Future<void> _showAudioCellularQaDialog(
     builder: (context) => SelectDialog<int>(
       title: '蜂窝网络音质',
       value: Pref.defaultAudioQaCellular,
-      values: AudioQuality.values.map((e) => (e.code, e.desc)).toList(),
+      values: AudioQuality.defaultAudioQualityOptions
+          .map((e) => (e.code, e.desc))
+          .toList(),
     ),
   );
   if (res != null) {

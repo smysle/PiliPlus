@@ -36,7 +36,9 @@ abstract final class SettingBoxKey {
       showBatteryLevel = 'showBatteryLevel',
       playerVolume = 'playerVolume',
       maxVolume = 'maxVolume',
-      cacheAudioEnterAudioPlayer = 'cacheAudioEnterAudioPlayer';
+      cacheAudioEnterAudioPlayer = 'cacheAudioEnterAudioPlayer',
+      enableVideoCoverPreview = 'enableVideoCoverPreview',
+      videoCoverPreviewDelay = 'videoCoverPreviewDelay';
 
   static const String enableVerticalExpand = 'enableVerticalExpand',
       feedBackEnable = 'feedBackEnable',
@@ -227,6 +229,7 @@ abstract final class SettingBoxKey {
       enableShowLiveDanmaku = 'enableShowLiveDanmaku',
       enableDanmakuMask = 'enableDanmakuMask',
       pipNoDanmaku = 'pipNoDanmaku',
+      miniPlayerOnBack = 'miniPlayerOnBack',
       showVipDanmaku = 'showVipDanmaku',
       mergeDanmaku = 'mergeDanmaku',
       danmakuWeight = 'danmakuWeight',
@@ -252,6 +255,8 @@ abstract final class SettingBoxKey {
       appFontWeightV2 = 'appFontWeightV2',
       dynamicColor = 'dynamicColor',
       customColor = 'customColor',
+      paletteId = 'paletteId',
+      paletteAccent = 'paletteAccent',
       displayMode = 'displayMode',
       smallCardWidth = 'smallCardWidth',
       recommendCardWidth = 'recommendCardWidth',
@@ -281,9 +286,11 @@ abstract final class SettingBoxKey {
 abstract final class LocalCacheKey {
   static const String historyPause = 'historyPause',
       blackMids = 'blackMids',
+      localBlackMids = 'localBlackMids',
       danmakuFilterRules = 'danmakuFilterRules',
       dynamicUpBaseline = 'dynamicUpBaseline',
       dynamicUpUnread = 'dynamicUpUnread',
+      danmakuAssistantConfig = 'danmakuAssistantConfig',
       mixinKey = 'mixinKey',
       timeStamp = 'timeStamp';
 }

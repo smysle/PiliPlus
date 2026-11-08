@@ -8,7 +8,10 @@ import 'package:PiliPlus/common/widgets/route_aware_mixin.dart';
 import 'package:PiliPlus/common/widgets/scale_app.dart';
 import 'package:PiliPlus/common/widgets/scroll_behavior.dart';
 import 'package:PiliPlus/http/init.dart';
+import 'package:PiliPlus/models/common/theme/palette_registry.dart';
+import 'package:PiliPlus/models/common/theme/palette_theme.dart';
 import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
+import 'package:PiliPlus/pages/mini_player/view.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliPlus/router/app_pages.dart';
 import 'package:PiliPlus/services/account_service.dart';
@@ -277,14 +280,22 @@ class MyApp extends StatelessWidget {
       lightScheme = _light!;
       darkScheme = _dark!;
     } else {
-      final customColor = Pref.customColor;
-      final brandColor =
-          colorThemeTypes.elementAtOrNull(customColor)?.color ??
-          Color(customColor);
-      final variant = Pref.schemeVariant;
+      final palette = PaletteRegistry.byId(Pref.paletteId);
+      final variant = palette.id == PaletteRegistry.seedId
+          ? Pref.schemeVariant
+          : palette.variant;
+      final accent = Pref.paletteAccent(palette.id);
+      final isPreset = accent >= 0 && accent < palette.accents.length;
 
-      lightScheme = brandColor.asColorSchemeSeed(variant, .light);
-      darkScheme = brandColor.asColorSchemeSeed(variant, .dark);
+      ColorScheme schemeOf(Brightness brightness) {
+        final seed = isPreset
+            ? palette.accents[accent].colorOf(brightness)
+            : Color(accent);
+        return buildPaletteScheme(palette, brightness, seed, variant);
+      }
+
+      lightScheme = schemeOf(Brightness.light);
+      darkScheme = schemeOf(Brightness.dark);
     }
 
     return (
@@ -366,11 +377,20 @@ class MyApp extends StatelessWidget {
     if (PlatformUtils.isDesktop) {
       return BackDetector(
         onBack: _onBack,
-        child: child,
+        child: _withMiniPlayer(child),
       );
     }
-    return child;
+    return _withMiniPlayer(child);
   }
+
+  /// 在所有页面之上挂载应用内小窗播放器
+  static Widget _withMiniPlayer(Widget child) => Stack(
+    fit: StackFit.passthrough,
+    children: [
+      child,
+      const Positioned.fill(child: MiniPlayerView()),
+    ],
+  );
 
   /// from [DynamicColorBuilderState.initPlatformState]
   static Future<bool> initPlatformState() async {

@@ -22,11 +22,13 @@ import 'package:PiliPlus/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliPlus/models/common/sponsor_block/skip_type.dart';
 import 'package:PiliPlus/models/common/super_chat_type.dart';
 import 'package:PiliPlus/models/common/super_resolution_type.dart';
+import 'package:PiliPlus/models/common/theme/palette_registry.dart';
 import 'package:PiliPlus/models/common/theme/theme_type.dart';
 import 'package:PiliPlus/models/common/video/base_quality.dart';
 import 'package:PiliPlus/models/common/video/cdn_type.dart';
 import 'package:PiliPlus/models/common/video/subtitle_pref_type.dart';
 import 'package:PiliPlus/models/common/video/video_decode_type.dart';
+import 'package:PiliPlus/models/user/danmaku_assistant.dart';
 import 'package:PiliPlus/models/user/danmaku_rule.dart';
 import 'package:PiliPlus/models/user/info.dart';
 import 'package:PiliPlus/pages/setting/pages/fullscreen_sc.dart'
@@ -67,26 +69,75 @@ abstract final class Pref {
     ),
   );
 
-  static Set<int> get blackMids =>
-      _localCache.get(LocalCacheKey.blackMids, defaultValue: <int>{});
+  /// Online blacklist cache. Local blocks are stored separately.
+  static Set<int> get blackMids => Set<int>.from(
+    _localCache.get(LocalCacheKey.blackMids, defaultValue: <int>{}),
+  );
 
   static set blackMids(Set<int> blackMidsSet) =>
       _localCache.put(LocalCacheKey.blackMids, blackMidsSet);
+
+  /// Local blacklist in insertion order (newest entries are appended).
+  static List<int> get localBlackMids {
+    final stored = _localCache.get(LocalCacheKey.localBlackMids);
+    if (stored is List) return List<int>.from(stored);
+
+    final legacyMids = blackMids.toList();
+    // The old cache mixed local and fetched online IDs; keep the IDs as local
+    // blocks, then clear that ambiguous cache so local removal takes effect.
+    _localCache
+      ..put(LocalCacheKey.localBlackMids, legacyMids)
+      ..put(LocalCacheKey.blackMids, <int>{});
+    return legacyMids;
+  }
+
+  static set localBlackMids(List<int> mids) =>
+      _localCache.put(LocalCacheKey.localBlackMids, List<int>.from(mids));
 
   static RuleFilter get danmakuFilterRule => _localCache.get(
     LocalCacheKey.danmakuFilterRules,
     defaultValue: RuleFilter.empty(),
   );
 
-  static void setBlackMid(int mid) => _localCache.put(
-    LocalCacheKey.blackMids,
-    GlobalData().blackMids..add(mid),
-  );
+  static DanmakuAssistantConfig get danmakuAssistantConfig =>
+      DanmakuAssistantConfig.fromStorage(
+        _localCache.get(LocalCacheKey.danmakuAssistantConfig),
+      );
 
-  static void removeBlackMid(int mid) => _localCache.put(
-    LocalCacheKey.blackMids,
-    GlobalData().blackMids..remove(mid),
-  );
+  static void setBlackMid(int mid) {
+    final globalData = GlobalData();
+    if (globalData.localBlackMids.contains(mid)) return;
+
+    globalData.localBlackMids.add(mid);
+    localBlackMids = globalData.localBlackMids;
+    globalData.blackMids.add(mid);
+  }
+
+  static void removeBlackMid(int mid) {
+    final globalData = GlobalData();
+    globalData.localBlackMids.remove(mid);
+    localBlackMids = globalData.localBlackMids;
+
+    if (!globalData.onlineBlackMids.contains(mid)) {
+      globalData.blackMids.remove(mid);
+    }
+  }
+
+  static void addOnlineBlackMid(int mid) {
+    final globalData = GlobalData();
+    globalData.onlineBlackMids.add(mid);
+    globalData.blackMids.add(mid);
+    blackMids = globalData.onlineBlackMids;
+  }
+
+  static void removeOnlineBlackMid(int mid) {
+    final globalData = GlobalData();
+    globalData.onlineBlackMids.remove(mid);
+    if (!globalData.localBlackMids.contains(mid)) {
+      globalData.blackMids.remove(mid);
+    }
+    blackMids = globalData.onlineBlackMids;
+  }
 
   static MemberTabType get memberTab =>
       MemberTabType.values[_setting.get(
@@ -234,6 +285,16 @@ abstract final class Pref {
 
   static int get sliderDuration =>
       _setting.get(SettingBoxKey.sliderDuration, defaultValue: 90);
+
+  static bool get enableVideoCoverPreview => _setting.get(
+    SettingBoxKey.enableVideoCoverPreview,
+    defaultValue: true,
+  );
+
+  static double get videoCoverPreviewDelay => _setting.get(
+    SettingBoxKey.videoCoverPreviewDelay,
+    defaultValue: 0.5,
+  );
 
   static int get defaultVideoQa => _setting.get(
     SettingBoxKey.defaultVideoQa,
@@ -748,6 +809,9 @@ abstract final class Pref {
   static bool get pipNoDanmaku =>
       _setting.get(SettingBoxKey.pipNoDanmaku, defaultValue: false);
 
+  static bool get miniPlayerOnBack =>
+      _setting.get(SettingBoxKey.miniPlayerOnBack, defaultValue: false);
+
   static bool get enableVerticalExpand =>
       _setting.get(SettingBoxKey.enableVerticalExpand, defaultValue: false);
 
@@ -822,6 +886,23 @@ abstract final class Pref {
 
   static int get customColor =>
       _setting.get(SettingBoxKey.customColor, defaultValue: 0);
+
+  /// 当前调色板方案，见 [PaletteRegistry]。
+  static int get paletteId => _setting.get(
+    SettingBoxKey.paletteId,
+    defaultValue: PaletteRegistry.seedId,
+  );
+
+  /// 某个方案当前的取色：小于 [PaletteTheme.accents] 长度时是下标，
+  /// 否则是自定义颜色的 ARGB。
+  static int paletteAccent(int id) {
+    final theme = PaletteRegistry.byId(id);
+    if (id == PaletteRegistry.seedId) return customColor;
+    return _setting.get(
+      '${SettingBoxKey.paletteAccent}.$id',
+      defaultValue: theme.defaultAccent,
+    );
+  }
 
   static bool get dynamicColor =>
       !Platform.isIOS &&

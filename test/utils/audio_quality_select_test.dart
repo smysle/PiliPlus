@@ -72,4 +72,53 @@ void main() {
       );
     });
   });
+
+  group('AudioQuality.autoAdvanced', () {
+    test('picks the best available audio track', () {
+      final playUrl = _playUrl([
+        AudioQuality.k192.code,
+        AudioQuality.k132.code,
+        AudioQuality.k64.code,
+      ]);
+      expect(
+        VideoUtils.findTargetAudio(
+          playUrl.dash!.audio!,
+          AudioQuality.autoAdvanced.code,
+        ).id,
+        AudioQuality.k192.code,
+      );
+    });
+
+    test('prefers Hi-Res over Dolby when both are available', () {
+      final playUrl = _playUrl([
+        AudioQuality.dolby_30255.code,
+        AudioQuality.hiRes.code,
+        AudioQuality.k192.code,
+      ]);
+      expect(
+        VideoUtils.findTargetAudio(
+          playUrl.dash!.audio!,
+          AudioQuality.autoAdvanced.code,
+        ).id,
+        AudioQuality.hiRes.code,
+      );
+    });
+
+    test('fromCode maps -1 to autoAdvanced and keeps its desc', () {
+      final qa = AudioQuality.fromCode(AudioQuality.autoAdvanced.code);
+      expect(qa, AudioQuality.autoAdvanced);
+      expect(qa.desc, '自动选择最佳音质');
+    });
+
+    test('settings options start with autoAdvanced', () {
+      expect(
+        AudioQuality.defaultAudioQualityOptions.first,
+        AudioQuality.autoAdvanced,
+      );
+      expect(
+        AudioQuality.defaultAudioQualityOptions.length,
+        AudioQuality.values.length + 1,
+      );
+    });
+  });
 }

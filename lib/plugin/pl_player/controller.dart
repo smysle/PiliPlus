@@ -14,6 +14,7 @@ import 'package:PiliPlus/models/common/account_type.dart';
 import 'package:PiliPlus/models/common/audio_normalization.dart';
 import 'package:PiliPlus/models/common/super_resolution_type.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
+import 'package:PiliPlus/models/user/danmaku_assistant.dart';
 import 'package:PiliPlus/models/user/danmaku_rule.dart';
 import 'package:PiliPlus/models/video/play/url.dart';
 import 'package:PiliPlus/models_new/video/video_shot/data.dart';
@@ -513,11 +514,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   /// [videoController] instance of Player
   VideoController? get videoController => _videoController;
 
-  bool _isMuted = false;
-
-  bool get isMuted => _isMuted;
-
-  set isMuted(bool value) => _isMuted = value;
+  bool isMuted = false;
 
   /// 听视频
   late final RxBool onlyPlayAudio = false.obs;
@@ -548,6 +545,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       (Platform.isAndroid && AndroidHelper.isPipMode) ||
       (Platform.isIOS && IOSPipHelper.isActive) ||
       (PlatformUtils.isDesktop && isDesktopPip);
+
+  /// 返回时是否进入应用内小窗播放
+  bool get miniPlayerOnBack => Pref.miniPlayerOnBack;
   late bool isDesktopPip = false;
   late nativeapi.Size _lastMinSize;
   late nativeapi.Rectangle _lastWindowBounds;
@@ -753,8 +753,114 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   // 弹幕相关配置
-  late final enableTapDm = PlatformUtils.isMobile && Pref.enableTapDm;
+  // Desktop uses the same hit testing as mobile. Keeping this mobile-only
+  // made Windows builds unable to suspend a danmaku and open its action bar.
+  late final enableTapDm = Pref.enableTapDm;
   late RuleFilter filters = Pref.danmakuFilterRule;
+  late DanmakuAssistantConfig danmakuAssistantConfig =
+      Pref.danmakuAssistantConfig;
+  final List<DanmakuAssistantRecord> danmakuAssistantSamples = [];
+  final List<DanmakuAssistantRecord> danmakuAssistantHits = [];
+  final Map<DanmakuAssistantKind, int> danmakuAssistantReasonCounts = {};
+  final RxInt danmakuAssistantRevision = 0.obs;
+  int danmakuAssistantBlockedTotal = 0;
+  int? _danmakuAssistantCid;
+  final Set<void Function()> _danmakuFilterReloaders = {};
+
+  void addDanmakuFilterReloader(void Function() callback) {
+    _danmakuFilterReloaders.add(callback);
+  }
+
+  void removeDanmakuFilterReloader(void Function() callback) {
+    _danmakuFilterReloaders.remove(callback);
+  }
+
+  void reloadDanmakuFilters() {
+    for (final callback in List<void Function()>.of(_danmakuFilterReloaders)) {
+      callback();
+    }
+  }
+
+  void beginDanmakuAssistantSession(int cid) {
+    if (_danmakuAssistantCid == cid) return;
+    _danmakuAssistantCid = cid;
+    clearDanmakuAssistantRecords();
+  }
+
+  void recordDanmakuAssistantBatch({
+    required List<DanmakuAssistantRecord> samples,
+    required List<DanmakuAssistantRecord> hits,
+  }) {
+    const maxSamples = 5000;
+    const maxHits = 200;
+
+    danmakuAssistantSamples.addAll(samples);
+    if (danmakuAssistantSamples.length > maxSamples) {
+      danmakuAssistantSamples.removeRange(
+        0,
+        danmakuAssistantSamples.length - maxSamples,
+      );
+    }
+
+    danmakuAssistantHits.addAll(hits);
+    if (danmakuAssistantHits.length > maxHits) {
+      danmakuAssistantHits.removeRange(
+        0,
+        danmakuAssistantHits.length - maxHits,
+      );
+    }
+
+    danmakuAssistantBlockedTotal += hits.length;
+    for (final hit in hits) {
+      final kind = hit.match!.kind;
+      danmakuAssistantReasonCounts.update(
+        kind,
+        (value) => value + 1,
+        ifAbsent: () => 1,
+      );
+    }
+    danmakuAssistantRevision.value++;
+  }
+
+  void clearDanmakuAssistantRecords() {
+    danmakuAssistantSamples.clear();
+    danmakuAssistantHits.clear();
+    danmakuAssistantReasonCounts.clear();
+    danmakuAssistantBlockedTotal = 0;
+    danmakuAssistantRevision.value++;
+  }
+
+  void updateDanmakuAssistantConfig(DanmakuAssistantConfig config) {
+    danmakuAssistantConfig = config;
+    GStorage.localCache.put(
+      LocalCacheKey.danmakuAssistantConfig,
+      config.toStorage(),
+    );
+    clearDanmakuAssistantRecords();
+    reloadDanmakuFilters();
+  }
+
+  bool addDanmakuAssistantTextRule(
+    String content, {
+    required bool absolute,
+  }) {
+    final rule = content.trim();
+    if (rule.isEmpty) return false;
+
+    final source = absolute
+        ? danmakuAssistantConfig.absoluteRules
+        : danmakuAssistantConfig.gentleRules;
+    if (source.any((item) => item.trim() == rule)) return false;
+
+    final rules = List<String>.of(source)..add(rule);
+    updateDanmakuAssistantConfig(
+      absolute
+          ? danmakuAssistantConfig.copyWith(absoluteRules: rules)
+          : danmakuAssistantConfig.copyWith(gentleRules: rules),
+    );
+    return true;
+  }
+
   // 关联弹幕控制器
   DanmakuController<DanmakuExtra>? danmakuController;
   bool showDanmaku = true;
@@ -1133,7 +1239,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
                 Platform.isAndroid &&
                     !isLive &&
                     !onlyPlayAudio.value &&
-                    !(dataSource is FileSource)
+                    dataSource is! FileSource
                 ? Pref.dolbyVisionOutput
                 : DolbyVisionOutput.mpv,
           );
@@ -1369,6 +1475,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     final useNativeHdr = dolbyVisionOutput != DolbyVisionOutput.mpv;
     isBuffering.value = false;
     _heartDuration = 0;
+    handedOffToMiniPlayer = false;
     danmakuController?.clear();
 
     // 切换后端（含从 mpv 换到原生 HDR 或反向）时旧实例不能复用
@@ -1998,7 +2105,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   /// 设置里的音量滑杆改变后，把新音量应用到当前后端
   Future<void> updatePlayerVolume() async {
-    if (_videoPlayerController case final player? when !_isMuted) {
+    if (_videoPlayerController case final player? when !isMuted) {
       await _applyPlayerVolume(player, _unmutedVolume(player));
     }
   }
@@ -2568,6 +2675,11 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   bool _isCloseAll = false;
   bool get isCloseAll => _isCloseAll;
 
+  /// 播放器是否已交由应用内小窗接管
+  ///
+  /// 转小窗播放后视频页会正常退出，此时不应暂停播放
+  bool handedOffToMiniPlayer = false;
+
   Future<void>? resetScreenRotation() {
     if (horizontalScreen) {
       return fullMode();
@@ -2789,21 +2901,28 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     _screenshotState = 0;
   }
 
+  /// 视频页退出时的收尾工作
+  ///
+  /// [pause] 为 false 时保持播放，用于转应用内小窗播放的场景
+  void onPopInvokedCleanup({bool pause = true}) {
+    if (pause && playerStatus.isPlaying) {
+      this.pause();
+    }
+
+    setPlayCallBack(null);
+
+    if (Platform.isAndroid && _playerCount <= 1) {
+      _disableAutoEnterPip();
+      if (!setSystemBrightness) {
+        ScreenBrightnessPlatform.instance.resetApplicationScreenBrightness();
+      }
+    }
+  }
+
   void onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
-      if (playerStatus.isPlaying) {
-        pause();
-      }
-
-      setPlayCallBack(null);
-
-      if (Platform.isAndroid && _playerCount <= 1) {
-        _disableAutoEnterPip();
-        if (!setSystemBrightness) {
-          ScreenBrightnessPlatform.instance.resetApplicationScreenBrightness();
-        }
-      }
-
+      // 已转交给应用内小窗播放时不要暂停
+      onPopInvokedCleanup(pause: !handedOffToMiniPlayer);
       return;
     }
 
@@ -2819,6 +2938,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       triggerFullScreen(status: false);
       return;
     }
+    onPopInvokedCleanup();
     Get.back();
   }
 }
