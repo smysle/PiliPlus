@@ -1220,7 +1220,15 @@ final class NativePageNavigationController: UINavigationController {
       }
 
       let signature = leadingItems.map { $0.map(ObjectIdentifier.init) }
-      if signature != leadingSignature {
+      // Compare against the groups UIKit actually holds, not just the last
+      // signature we wrote. Moving the app between the inner and outer display
+      // makes UIKit rebuild the bar and drop leadingItemGroups; our cached
+      // signature would then match, the assignment below would be skipped, and
+      // the home tools (search, notifications) would never come back.
+      let realized = content.navigationItem.leadingItemGroups.map {
+        $0.barButtonItems.map(ObjectIdentifier.init)
+      }
+      if signature != leadingSignature || realized != signature {
         leadingSignature = signature
         content.navigationItem.leadingItemGroups = leadingItems.map {
           .fixedGroup(representativeItem: nil, items: $0)
