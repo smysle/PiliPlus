@@ -45,6 +45,7 @@ abstract final class SettingBoxKey {
       enableMultiThread = 'enableMultiThread',
       multiThreadCount = 'multiThreadCount',
       autoPiP = 'autoPiP',
+      enableLongPressSpeed = 'enableLongPressSpeed',
       enableAutoLongPressSpeed = 'enableAutoLongPressSpeed',
       useRelativeSlide = 'useRelativeSlide',
       sliderDuration = 'sliderOffset',
