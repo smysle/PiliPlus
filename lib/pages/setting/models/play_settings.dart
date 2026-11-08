@@ -10,6 +10,7 @@ import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/pages/setting/pages/fullscreen_sc.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/slider_dialog.dart';
+import 'package:PiliPlus/plugin/pl_player/models/dolby_vision_output.dart';
 import 'package:PiliPlus/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliPlus/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
@@ -68,6 +69,27 @@ List<SettingsModel> get playSettings => [
         '当前:「${Pref.superResolutionType.label}」\n默认设置对番剧生效, 其他视频默认关闭\n超分辨率需要启用硬件解码, 若启用硬件解码后仍然不生效, 尝试切换硬件解码器为 auto-copy',
     onTap: _showSuperResolutionDialog,
   ),
+  if (Platform.isAndroid)
+    NormalModel(
+      title: '杜比视界播放器',
+      leading: const Icon(Icons.hdr_on),
+      getSubtitle: () => '当前:「${Pref.dolbyVisionOutput.label}」\n仅对在线视频的杜比视界画质生效，下次加载视频时切换',
+      onTap: (context, setState) async {
+        final output = await showDialog<DolbyVisionOutput>(
+          context: context,
+          builder: (_) => SelectDialog<DolbyVisionOutput>(
+            title: '杜比视界播放器',
+            value: Pref.dolbyVisionOutput,
+            values: [
+              for (final mode in DolbyVisionOutput.values) (mode, mode.label),
+            ],
+          ),
+        );
+        if (output == null) return;
+        await GStorage.setting.put(SettingBoxKey.dolbyVisionOutput, output.name);
+        if (context.mounted) setState();
+      },
+    ),
   const SwitchModel(
     title: '自动播放',
     subtitle: '进入详情页自动播放',
@@ -525,13 +547,21 @@ Future<void> showPlayerVolumeDialog(
   BuildContext context,
   VoidCallback setState, {
   ValueChanged<double>? onChanged,
+  bool nativeDolbyVision = false,
 }) {
   return showVolumeDialog(
     context,
     title: const Text('播放器音量'),
-    value: Pref.playerVolume,
+    value: nativeDolbyVision ? Pref.nativeDolbyVisionVolume : Pref.playerVolume,
+    min: nativeDolbyVision ? 0 : kMinVolume,
+    max: nativeDolbyVision ? 100 : kMaxVolume,
     onChanged: (value) => GStorage.setting
-        .put(SettingBoxKey.playerVolume, value)
+        .put(
+          nativeDolbyVision
+              ? SettingBoxKey.nativeDolbyVisionVolume
+              : SettingBoxKey.playerVolume,
+          value,
+        )
         .whenComplete(() {
           setState();
           onChanged?.call(value);
@@ -567,14 +597,16 @@ Future<void> showVolumeDialog(
   required Widget title,
   required double value,
   required ValueChanged<double> onChanged,
+  double min = kMinVolume,
+  double max = kMaxVolume,
 }) async {
   final res = await showDialog<double>(
     context: context,
     builder: (context) => SliderDialog(
       title: title,
-      min: kMinVolume,
-      max: kMaxVolume,
-      divisions: 40,
+      min: min,
+      max: max,
+      divisions: ((max - min) / 5).round(),
       precise: 0,
       value: value,
       suffix: '%',

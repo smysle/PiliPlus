@@ -28,6 +28,7 @@ import 'package:PiliPlus/models_new/video/video_detail/episode.dart' as ugc;
 import 'package:PiliPlus/pages/common/common_intro_controller.dart';
 import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
 import 'package:PiliPlus/pages/danmaku/mask/view.dart';
+import 'package:PiliPlus/plugin/pl_player/widgets/native_hdr_view.dart';
 import 'package:PiliPlus/pages/live_room/widgets/bottom_control.dart'
     as live_bottom;
 import 'package:PiliPlus/pages/video/controller.dart';
@@ -50,6 +51,7 @@ import 'package:PiliPlus/plugin/pl_player/widgets/common_btn.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/forward_seek.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/mpv_convert_webp.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/native_video_surface.dart';
+import 'package:PiliPlus/utils/android/native_hdr_player.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/play_pause_btn.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
 import 'package:PiliPlus/utils/cache_manager.dart';
@@ -122,7 +124,7 @@ class PLVideoPlayer extends StatefulWidget {
 class _PLVideoPlayerState extends State<PLVideoPlayer>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   late AnimationController _animationController;
-  late VideoController videoController;
+  VideoController? videoController;
   late final CommonIntroController introController = widget.introController!;
   PgcIntroController get pgcController => introController as PgcIntroController;
   UgcIntroController get ugcController => introController as UgcIntroController;
@@ -269,7 +271,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       vsync: this,
       duration: const Duration(milliseconds: 100),
     );
-    videoController = plPlayerController.videoController!;
+    videoController = plPlayerController.videoController;
 
     if (PlatformUtils.isMobile) {
       Future.microtask(() {
@@ -1337,12 +1339,13 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   Widget _withDanmakuMask(Widget child) {
     final controller = widget.videoDetailController?.danmakuMaskController;
-    if (controller == null) return child;
+    final vc = videoController;
+    if (controller == null || vc == null) return child;
     return Obx(() {
       final videoFit = plPlayerController.videoFit.value;
       return DanmakuMaskView(
         controller: controller,
-        videoRect: videoController.rect,
+        videoRect: vc.rect,
         transformationController: _transformationController,
         devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
         viewportSize: Size(maxWidth, maxHeight),
@@ -1357,9 +1360,19 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     });
   }
 
+  Widget _simpleVideo(double? aspectRatio) {
+    final vc = videoController;
+    if (vc == null) return const SizedBox.shrink();
+    return SimpleVideo(
+      controller: vc,
+      fill: widget.fill,
+      aspectRatio: aspectRatio,
+    );
+  }
+
   bool _isDanmakuPointVisible(Offset position) {
     final controller = widget.videoDetailController?.danmakuMaskController;
-    final rect = videoController.rect.value;
+    final rect = videoController?.rect.value;
     if (controller == null || rect == null || rect.isEmpty) return true;
     final videoFit = plPlayerController.videoFit.value;
     final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
@@ -1409,14 +1422,29 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           Positioned.fill(
             child: IgnorePointer(
               ignoring: !plPlayerController.enableDragSubtitle,
-              child: Obx(
-                () => SubtitleView(
-                  controller: videoController,
-                  configuration: plPlayerController.subtitleConfig.value,
-                  enableDragSubtitle: plPlayerController.enableDragSubtitle,
-                  onUpdatePadding: plPlayerController.onUpdatePadding,
-                ),
-              ),
+              child: Obx(() {
+                final configuration =
+                    plPlayerController.subtitleConfig.value;
+                final enableDrag = plPlayerController.enableDragSubtitle;
+                if (plPlayerController.videoPlayerController
+                    case final NativeHdrPlayer player) {
+                  return NativeHdrSubtitleView(
+                    player: player,
+                    configuration: configuration,
+                    enableDrag: enableDrag,
+                    onUpdatePadding: plPlayerController.onUpdatePadding,
+                  );
+                }
+                if (videoController case final vc?) {
+                  return SubtitleView(
+                    controller: vc,
+                    configuration: configuration,
+                    enableDragSubtitle: enableDrag,
+                    onUpdatePadding: plPlayerController.onUpdatePadding,
+                  );
+                }
+                return const SizedBox.shrink();
+              }),
             ),
           ),
 
@@ -2094,12 +2122,24 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                     plPlayerController.hwdec != null &&
                     plPlayerController.superResolutionType.value ==
                         SuperResolutionType.disable;
+                final player = plPlayerController.videoPlayerController;
+                final revision =
+                    plPlayerController.playbackBackendRevision.value;
                 return Transform.flip(
                   flipX: plPlayerController.flipX.value,
                   flipY: plPlayerController.flipY.value,
-                  child: PlatformUtils.supportsVideoOutputResize
+                  child: player is NativeHdrPlayer
+                      ? NativeHdrView(
+                          key: ValueKey(revision),
+                          player: player,
+                          width: plPlayerController.width,
+                          height: plPlayerController.height,
+                          aspectRatio: videoFit.aspectRatio,
+                        )
+                      : PlatformUtils.supportsVideoOutputResize &&
+                            videoController != null
                       ? NativeVideoSurface(
-                          controller: videoController,
+                          controller: videoController!,
                           transformationController: _transformationController,
                           fit: videoFit.boxFit,
                           alignment: widget.alignment,
@@ -2110,11 +2150,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                       : FittedBox(
                           fit: videoFit.boxFit,
                           alignment: widget.alignment,
-                          child: SimpleVideo(
-                            controller: plPlayerController.videoController!,
-                            fill: widget.fill,
-                            aspectRatio: videoFit.aspectRatio,
-                          ),
+                          child: _simpleVideo(videoFit.aspectRatio),
                         ),
                 );
               },

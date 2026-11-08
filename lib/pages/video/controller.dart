@@ -179,7 +179,10 @@ class VideoDetailController extends GetxController
     final player = plPlayerController.videoPlayerController;
     if (player == null) return;
     _rotate = value;
-    player.setProperty('video-rotate', _rotate.toString());
+    // 旋转是 mpv 属性；原生 HDR 后端由 Media3 自行处理方向
+    if (player is NativePlayer) {
+      player.setProperty('video-rotate', _rotate.toString());
+    }
   }
 
   late final headerCtrKey = GlobalKey<TimeBatteryMixin>();
@@ -593,7 +596,7 @@ class VideoDetailController extends GetxController
   @override
   BlockConfigMixin get blockConfig => plPlayerController;
   @override
-  Player? get player => plPlayerController.videoPlayerController;
+  PlatformPlayer? get player => plPlayerController.videoPlayerController;
   @override
   bool get isFullScreen => plPlayerController.isFullScreen.value;
   @override
