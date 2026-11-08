@@ -1578,7 +1578,7 @@ class VideoDetailController extends GetxController
               // 后段、互动选项却是开头节点」的不一致状态。
               playedTime = Duration.zero;
               if (plPlayerController.videoPlayerController != null) {
-                plPlayerController.seekTo(Duration.zero, isSeek: false);
+                plPlayerController.seekTo(Duration.zero);
               }
               getSteinEdgeInfo();
             }

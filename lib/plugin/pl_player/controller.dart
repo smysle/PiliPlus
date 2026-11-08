@@ -1686,20 +1686,16 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     _subscriptions = null;
   }
 
-  Future<void> seek(
-    Duration position, {
-    bool isSeek = false,
-    bool recordIntent = true,
-  }) async {
+  Future<void> seek(Duration position, {bool recordIntent = true}) async {
     _lastSeekAt = DateTime.now();
     if (recordIntent) {
       _playbackIntent.seek(position);
       _cancelRecoveryRetry();
     }
-    if (isSeek) {
-      /// 拖动进度条调节时，不等待第一帧，防止抖动
-      await _videoPlayerController?.stream.buffer.first;
-    }
+    // 不要在 seek 前等待 stream.buffer 的下一次事件：buffer 是
+    // broadcast + distinct 流，只在 demuxer-cache-time 变化时推送，
+    // 缓冲稳定时会永远等不到，导致 seek 根本不执行（进度条动了、
+    // 画面不动）。上游 ef30e2482 已移除同样的等待。
     danmakuController?.clear();
     try {
       await _videoPlayerController?.seek(position);
@@ -1710,7 +1706,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   /// 跳转至指定位置
-  Future<void> seekTo(Duration position, {bool isSeek = true}) async {
+  Future<void> seekTo(Duration position) async {
     if (_playerCount == 0) {
       return;
     }
@@ -1722,7 +1718,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     _cancelRecoveryRetry();
     _heartDuration = position.inSeconds;
 
-    seek(position, isSeek: isSeek, recordIntent: false);
+    seek(position, recordIntent: false);
   }
 
   /// 设置倍速
