@@ -132,6 +132,55 @@ class Request {
     Connectivity().onConnectivityChanged.skip(1).listen(_onConnectivityChanged);
   }
 
+  /// 直连时优先使用 IPv4 地址。
+  ///
+  /// 部分网络下 B 站 IPv6 边缘节点能完成 TCP/TLS 握手，却迟迟不返回 HTTP
+  /// 响应，dart:io 默认按 DNS 返回顺序连接且建连成功后不会换地址族，于是
+  /// 接口请求卡 2~3 秒甚至超时（#3525）。这里把 IPv4 排到前面，单个地址
+  /// 建连超过 1.5s 就换下一个；只有 AAAA 记录的网络不受影响。
+  ///
+  /// 注意：connectionFactory 的约定是返回**明文** Socket，HTTPS 的 TLS
+  /// 握手由 dart:io 自己完成（才会带上正确的 SNI 与主机名做证书校验），
+  /// 因此这里绝不能返回 SecureSocket。
+  static Future<ConnectionTask<Socket>> _ipv4FirstConnectionFactory(
+    Uri uri,
+    String? proxyHost,
+    int? proxyPort,
+  ) async {
+    if (proxyHost != null) {
+      return Socket.startConnect(proxyHost, proxyPort ?? 80);
+    }
+    final addresses = await InternetAddress.lookup(uri.host);
+    if (addresses.isEmpty) {
+      throw SocketException('Failed to resolve ${uri.host}');
+    }
+    final ordered = <InternetAddress>[
+      ...addresses.where((e) => e.type == InternetAddressType.IPv4),
+      ...addresses.where((e) => e.type != InternetAddressType.IPv4),
+    ];
+    Object? lastError;
+    for (final address in ordered) {
+      ConnectionTask<Socket>? task;
+      try {
+        task = await Socket.startConnect(
+          address.address,
+          uri.port,
+        ).timeout(const Duration(milliseconds: 1500));
+        return task;
+      } on SocketException catch (e) {
+        lastError = e;
+      } on TimeoutException catch (e) {
+        lastError = e;
+      } finally {
+        if (lastError != null) {
+          // 超时/失败时取消仍在进行的建连，避免 socket 泄漏
+          task?.cancel();
+        }
+      }
+    }
+    throw lastError ?? SocketException('Failed to connect to ${uri.host}');
+  }
+
   static (IOHttpClientAdapter, ConnectionManager?) _createPool() {
     final bool enableSystemProxy;
     late final String systemProxyHost;
@@ -153,7 +202,8 @@ class Request {
               ..badCertificateCallback = (cert, host, port) => true
           : () => HttpClient()
               ..idleTimeout = const Duration(seconds: 15)
-              ..autoUncompress = false, // Http2Adapter没有自动解压, 统一行为
+              ..autoUncompress = false // Http2Adapter没有自动解压, 统一行为
+              ..connectionFactory = _ipv4FirstConnectionFactory
     );
 
     final connectionManager = _enableHttp2
