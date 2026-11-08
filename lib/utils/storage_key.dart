@@ -36,7 +36,9 @@ abstract final class SettingBoxKey {
       showBatteryLevel = 'showBatteryLevel',
       playerVolume = 'playerVolume',
       maxVolume = 'maxVolume',
-      cacheAudioEnterAudioPlayer = 'cacheAudioEnterAudioPlayer';
+      cacheAudioEnterAudioPlayer = 'cacheAudioEnterAudioPlayer',
+      enableVideoCoverPreview = 'enableVideoCoverPreview',
+      videoCoverPreviewDelay = 'videoCoverPreviewDelay';
 
   static const String enableVerticalExpand = 'enableVerticalExpand',
       feedBackEnable = 'feedBackEnable',
