@@ -207,6 +207,8 @@ class _MainReplyPageState extends State<MainReplyPage>
   Widget _buildClassicItem(ReplyInfo item) => ReplyItemGrpc(
     replyItem: item,
     replyLevel: 1,
+    floorResolver: controller.floorResolver,
+    floorBySearch: item.replyControl.isUpTop,
     replyReply: throttleReplyReply,
     onReply: controller.onReply,
     onDelete: controller.onRemoveClassic,
@@ -243,6 +245,8 @@ class _MainReplyPageState extends State<MainReplyPage>
         return ReplyItemGrpc(
           replyItem: response[index],
           replyLevel: 1,
+          floorResolver: controller.floorResolver,
+          floorBySearch: response[index].replyControl.isUpTop,
           replyReply: throttleReplyReply,
           onReply: controller.onReply,
           onDelete: (item, subIndex) =>

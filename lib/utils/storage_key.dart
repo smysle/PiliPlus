@@ -98,6 +98,7 @@ abstract final class SettingBoxKey {
       horizontalMemberPage = 'horizontalMemberPage',
       replyLengthLimit = 'replyLengthLimit',
       classicHotReplyCount = 'classicHotReplyCount',
+      showReplyFloor = 'showReplyFloor',
       showArgueMsg = 'showArgueMsg',
       reverseFromFirst = 'reverseFromFirst',
       badCertificateCallback = 'badCertificateCallback',
