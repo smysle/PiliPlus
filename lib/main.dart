@@ -10,7 +10,6 @@ import 'package:PiliPlus/common/widgets/scroll_behavior.dart';
 import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/models/common/theme/palette_registry.dart';
 import 'package:PiliPlus/models/common/theme/palette_theme.dart';
-import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/pages/mini_player/view.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliPlus/router/app_pages.dart';
