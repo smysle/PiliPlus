@@ -29,6 +29,7 @@ import 'package:PiliPlus/pages/common/common_intro_controller.dart'
 import 'package:PiliPlus/pages/dynamics_repost/view.dart';
 import 'package:PiliPlus/pages/main_reply/view.dart';
 import 'package:PiliPlus/pages/sponsor_block/block_mixin.dart';
+import 'package:PiliPlus/models/common/video/base_quality.dart';
 import 'package:PiliPlus/pages/video/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/widgets/triple_mixin.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
@@ -494,7 +495,10 @@ class AudioController extends GetxController
           return;
         }
         position.value = 0;
-        final audio = audios.findTargetMedia((e) => e.id, cacheAudioQa);
+        final audio = audios.findTargetMedia(
+          (e) => AudioQuality.fromCode(e.id).rank,
+          AudioQuality.fromCode(cacheAudioQa).rank,
+        );
         _onOpenMedia(VideoUtils.getCdnUrl(audio.playUrls), volume: volume);
       } else if (playInfo.hasPlayUrl()) {
         final playUrl = playInfo.playUrl;
