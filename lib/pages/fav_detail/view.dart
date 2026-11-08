@@ -1,3 +1,4 @@
+import 'package:PiliPlus/utils/ios/native_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
@@ -133,6 +134,7 @@ class _FavDetailPageState extends State<FavDetailPage>
 
   Widget _buildHeader(bool enableMultiSelect, ThemeData theme) {
     return SliverAppBar.medium(
+      automaticallyImplyLeading: !IOSNativeTabBar.hasNativeBack(context),
       leadingWidth: enableMultiSelect ? 125 : null,
       leading: enableMultiSelect
           ? Row(

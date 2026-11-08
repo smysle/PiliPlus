@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/rail_page_view.dart';
 import 'package:PiliPlus/common/skeleton/video_card_v.dart';
 import 'package:PiliPlus/common/sliver_single_child_delegate.dart';
 import 'package:PiliPlus/common/style.dart';
@@ -31,10 +32,7 @@ class _RcmdPageState extends State<RcmdPage>
   Widget build(BuildContext context) {
     super.build(context);
     final colorScheme = ColorScheme.of(context);
-    final child = Container(
-      clipBehavior: .hardEdge,
-      margin: const .symmetric(horizontal: Style.safeSpace),
-      decoration: const BoxDecoration(borderRadius: Style.mdRadius),
+    final child = RailFeedFrame(
       child: refreshIndicator(
         key: controller.refreshKey,
         onRefresh: controller.onRefresh,
