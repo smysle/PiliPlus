@@ -1976,7 +1976,17 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   void multiBackwardStart([_]) {
-    isSeeking.value = true;
+    if (!isSeeking.value) {
+      // seekPosition 与鼠标悬停预览共用：悬停时 bottom_control 会把它写成
+      // 指针所指的位置（#3522）。长按快退必须从当前播放位置起算，否则会
+      // 退到指针位置再减一档。
+      seekPosition.value = position.value;
+      isSeeking.value = true;
+      // progress 只在 hoverDx 为空时才显示 seekPosition，
+      // 否则进度条仍停在播放位置、看不到快退目标
+      hoverDx = null;
+      showPreview.value = false;
+    }
     seekPosition.value = max(0, seekPosition.value - fastForBackwardInSeconds);
   }
 

@@ -52,6 +52,9 @@ class BottomControl extends StatelessWidget {
 
   void _onHover(double dx, int seconds) {
     if (animCtr.isAnimating) return;
+    // 键盘长按快退期间 seekPosition 是累积中的目标位置（#3522），
+    // 指针若停在进度条上会把预览位置写进去，覆盖快退进度
+    if (controller.isSeeking.value) return;
     controller
       ..hoverDx = dx
       ..seekPosition.value = seconds
