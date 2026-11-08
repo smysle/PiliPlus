@@ -70,6 +70,9 @@ class _MainAppState extends PopScopeState<MainApp>
     if (Platform.isIOS) {
       IOSNativeTabBar.rightRailDevice.addListener(_onNativeHomeChanged);
       IOSNativeTabBar.homeToolsAvailable.addListener(_onNativeHomeChanged);
+      // 竖栏宽度由原生异步下发，didChangeDependencies 往往先跑一步，
+      // 拿到的还是展开前的安全区。这里补上监听，回包后再算一次。
+      IOSNativeTabBar.safeArea.addListener(_onNativeHomeChanged);
       _nativeTabBarWorkers.addAll([
         ever(_mainController.selectedIndex, (_) => _onNativeHomeChanged()),
         ever(
@@ -270,6 +273,7 @@ class _MainAppState extends PopScopeState<MainApp>
     if (Platform.isIOS) {
       IOSNativeTabBar.rightRailDevice.removeListener(_onNativeHomeChanged);
       IOSNativeTabBar.homeToolsAvailable.removeListener(_onNativeHomeChanged);
+      IOSNativeTabBar.safeArea.removeListener(_onNativeHomeChanged);
     }
     if (_homeRoute case final route?) IOSNativeTabBar.removePageActions(route);
     if (Platform.isMacOS) {
