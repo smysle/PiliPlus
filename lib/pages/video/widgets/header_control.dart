@@ -529,13 +529,7 @@ class HeaderControlState extends State<HeaderControl>
                         ),
                       );
                       if (result != null) {
-                        VideoUtils.cdnService = result;
-                        setting.put(SettingBoxKey.CDNService, result.name);
-                        SmartDialog.showToast('已设置为 ${result.desc}，正在重载视频');
-                        videoDetailCtr.queryVideoUrl(
-                          fromReset: true,
-                          restart: true,
-                        );
+                        await videoDetailCtr.selectCdnService(result);
                       }
                     },
                   ),

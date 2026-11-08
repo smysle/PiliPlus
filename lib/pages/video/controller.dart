@@ -23,6 +23,7 @@ import 'package:PiliPlus/models/common/sponsor_block/post_segment_model.dart';
 import 'package:PiliPlus/models/common/sponsor_block/segment_model.dart';
 import 'package:PiliPlus/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliPlus/models/common/video/base_quality.dart';
+import 'package:PiliPlus/models/common/video/cdn_type.dart';
 import 'package:PiliPlus/models/common/video/source_type.dart';
 import 'package:PiliPlus/models/common/video/video_decode_type.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
@@ -71,9 +72,11 @@ import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
 import 'package:PiliPlus/utils/play_url_expiry.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliPlus/utils/playback_position.dart';
 import 'package:PiliPlus/utils/reply_scheme_helper.dart';
 import 'package:path/path.dart' as path;
 import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/subtitle_utils.dart';
 import 'package:PiliPlus/utils/theme_utils.dart';
@@ -1091,6 +1094,22 @@ class VideoDetailController extends GetxController
         }
       }
     }
+  }
+
+  /// Select a CDN without losing the current playback position.
+  Future<void> selectCdnService(CDNService service) async {
+    if (isClosed || isFileSource || isQuerying) return;
+
+    playedTime = chooseResumePosition(
+      playerPosition: plPlayerController.videoPlayerController?.state.position,
+      lastReportedSeconds: plPlayerController.position.value,
+      previousResumePosition: playedTime,
+    );
+    defaultST = null;
+    VideoUtils.cdnService = service;
+    await setting.put(SettingBoxKey.CDNService, service.name);
+    SmartDialog.showToast('已设置为 ${service.desc}，正在重载视频');
+    await queryVideoUrl(fromReset: true);
   }
 
   final languages = Rxn<List<LanguageItem>>();
