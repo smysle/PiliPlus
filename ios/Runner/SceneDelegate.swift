@@ -1039,6 +1039,19 @@ final class NativePageNavigationController: UINavigationController {
 
   override func viewDidLoad() {
     super.viewDidLoad()
+    // verticalBarEdge is a trait, and a trait change need not be accompanied by
+    // a layout pass. Without this the top bar keeps the pre-fold `visible`
+    // value: on Duo the status-bar buttons (search, notifications) stay hidden
+    // after unfolding until something else calls updateBars().
+    #if compiler(>=6.4)
+      if #available(iOS 27.1, *) {
+        registerForTraitChanges(
+          UITraitCollection.systemTraitsAffectingVerticalBarEdge
+        ) { (self: NativePageNavigationController, _) in
+          self.updateBars()
+        }
+      }
+    #endif
     navigationBar.isTranslucent = true
     toolbar.isTranslucent = true
     setNavigationBarHidden(true, animated: false)
