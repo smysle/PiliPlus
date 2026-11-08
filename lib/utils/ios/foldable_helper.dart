@@ -54,7 +54,9 @@ abstract final class IOSFoldableHelper {
     if (!Platform.isIOS) return;
     try {
       final info = await DeviceInfoPlugin().iosInfo;
-      // 只看 model：Duo 的内屏可能与 iPad 同尺寸，特征串未必含 "iphone"
+      // UIDevice.model 恒为 "iPhone" / "iPad"（与营销名无关），Duo 也是
+      // "iPhone"，因此可以直接靠它排除 iPad。模拟器实测：Duo 外屏返回
+      // isIPhone=true、size=466x678pt、unfolded=false。
       _isIPhone = !info.model.toLowerCase().contains('ipad');
     } catch (e) {
       if (kDebugMode) debugPrint('IOSFoldableHelper init: $e');

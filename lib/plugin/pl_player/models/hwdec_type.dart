@@ -42,9 +42,21 @@ enum HwDecType {
   final String desc;
   const HwDecType(this.hwdec, this.desc);
 
+  /// Android 默认硬解模式。
+  ///
+  /// 优先 `mediacodec-copy`（帧拷回系统内存）而不是 `mediacodec`（零拷贝直通）：
+  /// 实测在华为麒麟等机型上，零拷贝路径在倍速播放时会卡死画面（#3523 / #2968 /
+  /// #3133），且 mpv 的列表只会在初始化失败时回退，无法在播放中自动降级。
+  /// `mediacodec-copy` 仍走硬件解码，只是改变向后续环节传递帧的方式。
+  /// Android 正式版的默认组合，单独抽出以便跨平台测试断言。
+  static final String androidDefault = [
+    mediacodecCopy.hwdec,
+    autoSafe.hwdec,
+  ].join(',');
+
   static final String kHwdec = Platform.isAndroid
       ? kDebugMode
             ? autoSafe.hwdec
-            : [mediacodec.hwdec, autoSafe.hwdec].join(',')
+            : androidDefault
       : auto.hwdec;
 }

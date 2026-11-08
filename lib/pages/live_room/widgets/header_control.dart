@@ -279,7 +279,7 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
                         children: [
                           const Icon(Icons.volume_up, size: 17),
                           Text(
-                            '播放器音量: ${player.getProperty('volume').subLength(3)}%',
+                            '播放器音量: ${player.state.volume.toStringAsFixed(0)}%',
                             style: const TextStyle(fontSize: 14),
                           ),
                         ],

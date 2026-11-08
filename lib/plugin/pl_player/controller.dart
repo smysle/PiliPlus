@@ -20,6 +20,7 @@ import 'package:PiliPlus/models_new/video/video_shot/data.dart';
 import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
 import 'package:PiliPlus/pages/sponsor_block/block_mixin.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
+import 'package:PiliPlus/plugin/pl_player/models/dolby_vision_output.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_status.dart';
 import 'package:PiliPlus/plugin/pl_player/models/double_tap_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/duration.dart';
@@ -36,6 +37,7 @@ import 'package:PiliPlus/plugin/pl_player/utils/source_recovery_policy.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/system_volume.dart';
 import 'package:PiliPlus/services/multi_thread_proxy.dart';
 import 'package:PiliPlus/services/service_locator.dart';
+import 'package:PiliPlus/utils/android/native_hdr_player.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
@@ -86,7 +88,7 @@ typedef PlayOwner = ({String tag, Type? type});
 typedef SourceRefreshCallback = Future<bool> Function({required bool force});
 
 class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
-  Player? _videoPlayerController;
+  PlatformPlayer? _videoPlayerController;
   VideoController? _videoController;
 
   static PlPlayerController? _instance;
@@ -491,12 +493,31 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   double get longPressSpeed => _longPressSpeed.value;
 
   /// [videoPlayerController] instance of Player
-  Player? get videoPlayerController => _videoPlayerController;
+  PlatformPlayer? get videoPlayerController => _videoPlayerController;
+
+  /// 仅当当前后端是 mpv 时才有值。原生 HDR 后端没有 libmpv 实例。
+  NativePlayer? get mpvPlayer => switch (_videoPlayerController) {
+    final NativePlayer player => player,
+    _ => null,
+  };
+
+  /// 切换播放后端时自增，供界面重建原生视图
+  final playbackBackendRevision = 0.obs;
+
+  bool get usesNativeDolbyVision => _videoPlayerController is NativeHdrPlayer;
+
+  /// 当前后端生效的音量（0~100）。原生 HDR 后端有独立音量设置。
+  double get playerVolume =>
+      usesNativeDolbyVision ? Pref.nativeDolbyVisionVolume : Pref.playerVolume;
 
   /// [videoController] instance of Player
   VideoController? get videoController => _videoController;
 
-  bool isMuted = false;
+  bool _isMuted = false;
+
+  bool get isMuted => _isMuted;
+
+  set isMuted(bool value) => _isMuted = value;
 
   /// 听视频
   late final RxBool onlyPlayAudio = false.obs;
@@ -679,7 +700,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   void enterPip({bool autoEnter = false}) {
-    if (videoPlayerController case NativePlayer(:final state)) {
+    if (videoPlayerController case PlatformPlayer(:final state)) {
       if (Platform.isIOS) {
         if (videoController?.id.value case final textureId?) {
           IOSPipHelper.enter(
@@ -1108,6 +1129,13 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
             volume,
             rotate,
             valid,
+            dolbyVisionOutput:
+                Platform.isAndroid &&
+                    !isLive &&
+                    !onlyPlayAudio.value &&
+                    !(dataSource is FileSource)
+                ? Pref.dolbyVisionOutput
+                : DolbyVisionOutput.mpv,
           );
 
           if (_playerCount == 0) {
@@ -1176,7 +1204,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         setting.put(SettingBoxKey.superResolutionType, type.index);
       }
     }
-    pp ??= _videoPlayerController!;
+    pp ??= mpvPlayer;
+    if (pp == null) return;
     switch (type) {
       case SuperResolutionType.disable:
         return pp.command(const ['change-list', 'glsl-shaders', 'clr', '']);
@@ -1334,16 +1363,34 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     Duration? seekTo,
     Volume? volume,
     int? rotate,
-    bool Function() isCurrent,
-  ) async {
+    bool Function() isCurrent, {
+    DolbyVisionOutput dolbyVisionOutput = DolbyVisionOutput.mpv,
+  }) async {
+    final useNativeHdr = dolbyVisionOutput != DolbyVisionOutput.mpv;
     isBuffering.value = false;
     _heartDuration = 0;
     danmakuController?.clear();
 
+    // 切换后端（含从 mpv 换到原生 HDR 或反向）时旧实例不能复用
+    if (_videoPlayerController case final previous?
+        when useNativeHdr || previous is NativeHdrPlayer) {
+      _removeListeners();
+      _stopWakeLockTimer();
+      _videoPlayerController = null;
+      _videoController = null;
+      playbackBackendRevision.value++;
+      await previous.dispose();
+      if (_playerCount == 0) return;
+    }
+
     var player = _videoPlayerController;
 
     if (player == null) {
-      player = await _initPlayer();
+      player = useNativeHdr
+          ? await NativeHdrPlayer.create(
+              useTexture: dolbyVisionOutput == DolbyVisionOutput.texture,
+            )
+          : await _initPlayer();
       if (_playerCount == 0) {
         _removeListeners();
         player.dispose();
@@ -1352,12 +1399,27 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         return;
       }
       _videoPlayerController = player;
+      playbackBackendRevision.value++;
       if (!isCurrent()) return;
-      if (isAnim && superResolutionType.value != .disable) {
+      if (player is NativePlayer &&
+          isAnim &&
+          superResolutionType.value != .disable) {
         await setShader();
       }
     }
     if (!isCurrent()) return;
+
+    if (player is NativeHdrPlayer) {
+      await _applyPlayerVolume(player, _unmutedVolume(player));
+      await player.load(
+        video: dataSource.videoSource,
+        audio: dataSource.audioSource,
+        position: seekTo,
+        referer: HttpString.baseUrl,
+        userAgent: BrowserUa.pc,
+      );
+      return;
+    }
 
     final Map<String, String> extras = {
       if (dataSource is FileSource)
@@ -1422,7 +1484,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     if (dataSource is FileSource) {
       return null;
     }
-    if (_videoPlayerController case final ctr? when (ctr.current.isNotEmpty)) {
+    if (_videoPlayerController case final NativeHdrPlayer player) {
+      return player.retry();
+    }
+    if (mpvPlayer case final ctr? when (ctr.current.isNotEmpty)) {
       var media = ctr.current.last;
       if (!isLive) media = media.copyWith(start: ctr.state.position);
       _sourceOpenedAt = DateTime.now();
@@ -1499,7 +1564,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   /// 播放事件监听
-  void _startListeners(NativePlayer player) {
+  void _startListeners(PlatformPlayer player) {
     assert(_subscriptions == null);
     final stream = player.stream;
     _subscriptions = [
@@ -1686,20 +1751,16 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     _subscriptions = null;
   }
 
-  Future<void> seek(
-    Duration position, {
-    bool isSeek = false,
-    bool recordIntent = true,
-  }) async {
+  Future<void> seek(Duration position, {bool recordIntent = true}) async {
     _lastSeekAt = DateTime.now();
     if (recordIntent) {
       _playbackIntent.seek(position);
       _cancelRecoveryRetry();
     }
-    if (isSeek) {
-      /// 拖动进度条调节时，不等待第一帧，防止抖动
-      await _videoPlayerController?.stream.buffer.first;
-    }
+    // 不要在 seek 前等待 stream.buffer 的下一次事件：buffer 是
+    // broadcast + distinct 流，只在 demuxer-cache-time 变化时推送，
+    // 缓冲稳定时会永远等不到，导致 seek 根本不执行（进度条动了、
+    // 画面不动）。上游 ef30e2482 已移除同样的等待。
     danmakuController?.clear();
     try {
       await _videoPlayerController?.seek(position);
@@ -1710,7 +1771,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   /// 跳转至指定位置
-  Future<void> seekTo(Duration position, {bool isSeek = true}) async {
+  Future<void> seekTo(Duration position) async {
     if (_playerCount == 0) {
       return;
     }
@@ -1722,7 +1783,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     _cancelRecoveryRetry();
     _heartDuration = position.inSeconds;
 
-    seek(position, isSeek: isSeek, recordIntent: false);
+    seek(position, recordIntent: false);
   }
 
   /// 设置倍速
@@ -1753,6 +1814,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     bool userInitiated = true,
   }) async {
     if (_playerCount == 0) return;
+    // 原生 HDR 画面初始化失败时不再尝试播放，提示已在界面上给出
+    if (_videoPlayerController case NativeHdrPlayer(surfaceUnavailable: true)) {
+      return;
+    }
     if (userInitiated) {
       _playbackIntent.requestPlay();
     } else if (!wantsPlayback) {
@@ -1917,6 +1982,26 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   final RxBool volumeIndicator = false.obs;
   Timer? volumeTimer;
   bool volumeInterceptEventStream = false;
+
+  double _unmutedVolume(PlatformPlayer player) {
+    if (player is NativeHdrPlayer) return Pref.nativeDolbyVisionVolume;
+    return PlatformUtils.isMobile ? Pref.playerVolume : volume.value * 100;
+  }
+
+  Future<void> _applyPlayerVolume(PlatformPlayer player, double percent) async {
+    if (player is NativePlayer) {
+      await setVolumeCapped(player, percent / 100);
+    } else {
+      await player.setVolume(percent);
+    }
+  }
+
+  /// 设置里的音量滑杆改变后，把新音量应用到当前后端
+  Future<void> updatePlayerVolume() async {
+    if (_videoPlayerController case final player? when !_isMuted) {
+      await _applyPlayerVolume(player, _unmutedVolume(player));
+    }
+  }
 
   final double maxVolume = PlatformUtils.isDesktop ? Pref.maxVolume : 1.0;
 

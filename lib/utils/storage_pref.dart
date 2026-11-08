@@ -6,6 +6,7 @@ import 'package:PiliPlus/common/widgets/pair.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/models/common/bar_hide_type.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamic_badge_mode.dart';
+import 'package:PiliPlus/plugin/pl_player/models/dolby_vision_output.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamic_up_list_mode.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamics_type.dart';
 import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
@@ -436,6 +437,14 @@ abstract final class Pref {
     SettingBoxKey.horizontalMemberPage,
     defaultValue: horizontalScreen,
   );
+
+  /// Upper bound of hot replies shown before "更多热门评论" in the classic
+  /// layout.
+  static int get classicHotReplyCount =>
+      _setting.get(SettingBoxKey.classicHotReplyCount, defaultValue: 3);
+
+  static bool get showReplyFloor =>
+      _setting.get(SettingBoxKey.showReplyFloor, defaultValue: false);
 
   static int? get replyLengthLimit {
     int length = _setting.get(SettingBoxKey.replyLengthLimit, defaultValue: 6);
@@ -1167,6 +1176,22 @@ abstract final class Pref {
 
   static int get angleDegrees =>
       _setting.get(SettingBoxKey.angleDegrees, defaultValue: 30);
+
+  static DolbyVisionOutput get dolbyVisionOutput =>
+      switch (_setting.get(SettingBoxKey.dolbyVisionOutput)) {
+        'mpv' => .mpv,
+        'surface' => .surface,
+        'texture' => .texture,
+        _ => Pref._legacyNativeDolbyVision ? .surface : .mpv,
+      };
+
+  static bool get _legacyNativeDolbyVision => _setting.get(
+    SettingBoxKey.enableNativeDolbyVision,
+    defaultValue: false,
+  );
+
+  static double get nativeDolbyVisionVolume =>
+      _setting.get(SettingBoxKey.nativeDolbyVisionVolume, defaultValue: 100.0);
 
   static double get playerVolume => // mobile
       _setting.get(SettingBoxKey.playerVolume, defaultValue: 100.0);
