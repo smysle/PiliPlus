@@ -548,6 +548,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       (Platform.isAndroid && AndroidHelper.isPipMode) ||
       (Platform.isIOS && IOSPipHelper.isActive) ||
       (PlatformUtils.isDesktop && isDesktopPip);
+
+  /// 返回时是否进入应用内小窗播放
+  bool get miniPlayerOnBack => Pref.miniPlayerOnBack;
   late bool isDesktopPip = false;
   late nativeapi.Size _lastMinSize;
   late nativeapi.Rectangle _lastWindowBounds;
@@ -1369,6 +1372,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     final useNativeHdr = dolbyVisionOutput != DolbyVisionOutput.mpv;
     isBuffering.value = false;
     _heartDuration = 0;
+    handedOffToMiniPlayer = false;
     danmakuController?.clear();
 
     // 切换后端（含从 mpv 换到原生 HDR 或反向）时旧实例不能复用
@@ -2568,6 +2572,11 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   bool _isCloseAll = false;
   bool get isCloseAll => _isCloseAll;
 
+  /// 播放器是否已交由应用内小窗接管
+  ///
+  /// 转小窗播放后视频页会正常退出，此时不应暂停播放
+  bool handedOffToMiniPlayer = false;
+
   Future<void>? resetScreenRotation() {
     if (horizontalScreen) {
       return fullMode();
@@ -2789,21 +2798,28 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     _screenshotState = 0;
   }
 
+  /// 视频页退出时的收尾工作
+  ///
+  /// [pause] 为 false 时保持播放，用于转应用内小窗播放的场景
+  void onPopInvokedCleanup({bool pause = true}) {
+    if (pause && playerStatus.isPlaying) {
+      this.pause();
+    }
+
+    setPlayCallBack(null);
+
+    if (Platform.isAndroid && _playerCount <= 1) {
+      _disableAutoEnterPip();
+      if (!setSystemBrightness) {
+        ScreenBrightnessPlatform.instance.resetApplicationScreenBrightness();
+      }
+    }
+  }
+
   void onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
-      if (playerStatus.isPlaying) {
-        pause();
-      }
-
-      setPlayCallBack(null);
-
-      if (Platform.isAndroid && _playerCount <= 1) {
-        _disableAutoEnterPip();
-        if (!setSystemBrightness) {
-          ScreenBrightnessPlatform.instance.resetApplicationScreenBrightness();
-        }
-      }
-
+      // 已转交给应用内小窗播放时不要暂停
+      onPopInvokedCleanup(pause: !handedOffToMiniPlayer);
       return;
     }
 
@@ -2819,6 +2835,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       triggerFullScreen(status: false);
       return;
     }
+    onPopInvokedCleanup();
     Get.back();
   }
 }

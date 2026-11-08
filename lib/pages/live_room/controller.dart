@@ -27,6 +27,7 @@ import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_status.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/danmaku_options.dart';
+import 'package:PiliPlus/services/mini_player_service.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/tcp/live.dart';
 import 'package:PiliPlus/utils/accounts.dart';
@@ -232,6 +233,8 @@ class LiveRoomController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    // 直播复用同一个播放器实例，先收回应用内小窗持有的引用
+    MiniPlayerService.instance.release();
     scrollController = ScrollController()..addListener(listener);
     final account = Accounts.main;
     isLogin = account.isLogin;

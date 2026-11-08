@@ -227,6 +227,7 @@ abstract final class SettingBoxKey {
       enableShowLiveDanmaku = 'enableShowLiveDanmaku',
       enableDanmakuMask = 'enableDanmakuMask',
       pipNoDanmaku = 'pipNoDanmaku',
+      miniPlayerOnBack = 'miniPlayerOnBack',
       showVipDanmaku = 'showVipDanmaku',
       mergeDanmaku = 'mergeDanmaku',
       danmakuWeight = 'danmakuWeight',
