@@ -621,8 +621,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     final isFullScreen = this.isFullScreen.value;
     if (_fsProcessing) return;
     if (IOSFoldableHelper.usesSystemOrientation &&
-        (!isFullScreen || IOSNativeTabBar.managedFullscreenDirection))
+        (!isFullScreen || IOSNativeTabBar.managedFullscreenDirection)) {
       return;
+    }
     if (checkIsAutoRotate &&
         param.isAutoRotate != true &&
         (!isFullScreen ||

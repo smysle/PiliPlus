@@ -64,8 +64,9 @@ abstract final class IOSFoldableHelper {
       _nativeAutomaticOrientation = true;
       if (isAuto &&
           !IOSNativeTabBar.playerFullScreen.value &&
-          (newlyRecognized || needsSync))
+          (newlyRecognized || needsSync)) {
         applyOrientation();
+      }
     };
     WidgetsBinding.instance.addObserver(_FoldObserver());
   }

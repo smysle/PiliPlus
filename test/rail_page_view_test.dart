@@ -24,12 +24,12 @@ void main() {
                   children: [
                     RailPageView(
                       controller: inner,
-                      children: [
-                        const ColoredBox(
+                      children: const [
+                        ColoredBox(
                           color: Colors.red,
                           child: SizedBox.expand(key: Key('first')),
                         ),
-                        const ColoredBox(
+                        ColoredBox(
                           color: Colors.blue,
                           child: SizedBox.expand(key: Key('second')),
                         ),
