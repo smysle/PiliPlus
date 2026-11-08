@@ -180,7 +180,6 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   int get _sourceGeneration => _sourceGate.generation;
 
   Timer? _timer;
-  StreamSubscription? _subForSeek;
 
   Box setting = GStorage.setting;
 
@@ -911,11 +910,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     return null;
   }
 
-  static Future<void>? seekToIfExists(
-    Duration position, {
-    bool isSeek = true,
-  }) {
-    return _instance?.seekTo(position, isSeek: isSeek);
+  static Future<void>? seekToIfExists(Duration position) {
+    return _instance?.seekTo(position);
   }
 
   static double? getVolumeIfExists() {
@@ -1620,13 +1616,6 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     _subscriptions = null;
   }
 
-  void _cancelSubForSeek() {
-    if (_subForSeek != null) {
-      _subForSeek!.cancel();
-      _subForSeek = null;
-    }
-  }
-
   Future<void> seek(
     Duration position, {
     bool isSeek = false,
@@ -1663,16 +1652,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     _cancelRecoveryRetry();
     _heartDuration = position.inSeconds;
 
-    if (duration.value != 0) {
-      seek(position, isSeek: isSeek, recordIntent: false);
-    } else {
-      // if (kDebugMode) debugPrint('seek duration else');
-      _subForSeek?.cancel();
-      _subForSeek = duration.listen((_) {
-        seek(position, isSeek: isSeek, recordIntent: false);
-        _cancelSubForSeek();
-      });
-    }
+    seek(position, isSeek: isSeek, recordIntent: false);
   }
 
   /// 设置倍速
@@ -1753,7 +1733,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     if (hideControls) controls = false;
     // repeat为true，将从头播放
     if (repeat) {
-      await seekTo(Duration.zero, isSeek: false);
+      await seekTo(Duration.zero);
     }
 
     await _videoPlayerController?.play();
@@ -2012,7 +1992,6 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   void onForwardBackward(Duration duration) {
     seekTo(
       duration.clamp(Duration.zero, videoPlayerController!.state.duration),
-      isSeek: false,
     ).whenComplete(play);
   }
 
@@ -2243,7 +2222,6 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     // 每次减1，最后销毁
     resetScreenRotation();
     cancelLongPressTimer();
-    _cancelSubForSeek();
     if (!_isCloseAll && _playerCount > 1) {
       _playerCount -= 1;
       _heartDuration = 0;
