@@ -103,7 +103,8 @@ Widget _replyItemLayout({
 }) {
   final colorScheme = ColorScheme.of(context);
   Widget child = Padding(
-    padding: const EdgeInsets.fromLTRB(12, 14, 8, 5),
+    // 右侧竖栏（iPhone Duo）会把内容压住，统一在这里让位
+    padding: railPageInsets(context, const EdgeInsets.fromLTRB(12, 14, 8, 5)),
     child: content,
   );
 
