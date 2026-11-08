@@ -8,21 +8,27 @@ import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import 'package:flutter/widgets.dart'
-    show WidgetsBinding, WidgetsBindingObserver;
+    show Size, WidgetsBinding, WidgetsBindingObserver;
 
 /// 折叠屏 iPhone（iPhone Duo）适配。
 ///
-/// 所有直板 iPhone 的屏幕最短边都小于 600pt，只有折叠屏 iPhone 展开后的内屏
-/// （7.6"，约 626×890pt）会达到平板尺寸。因此在 iPhone 上可以直接用当前窗口
-/// 尺寸判断展开/合上，无需依赖机型标识符：
+/// 所有直板 iPhone 的屏幕最短边都小于 470pt（横屏时约为高度的 390~430pt），
+/// 只有折叠屏 iPhone 展开后的内屏（约 626×890pt）会达到平板尺寸。因此在
+/// iPhone 上可以直接用当前窗口尺寸判断展开/合上，无需依赖机型标识符：
 ///
 /// - 展开（内屏）：启用横屏适配（平板布局，允许任意方向）。
 ///   注意：iPhone Duo 内屏不遵守 supportedInterfaceOrientations，
 ///   方向锁定在内屏上无效，布局只能依据窗口尺寸。
 /// - 合上（外屏）：恢复手机布局并锁定竖屏，与普通 iPhone 一致。
 ///
-/// 非折叠 iPhone 的最短边永远 < 600，自动模式下行为与关闭横屏适配完全相同。
+/// 非折叠 iPhone 的最短边永远小于 [innerScreenThreshold]，自动模式下行为与
+/// 关闭横屏适配完全相同。
 abstract final class IOSFoldableHelper {
+  /// 内屏阈值。iPhone Duo 内屏约 626×890pt，直板 iPhone 横屏最短边约 390~430pt，
+  /// 两者之间留足余量；不用平板惯用的 600，是因为 7.6" 内屏按 3x 渲染时
+  /// 最短边可能只有 589pt，卡在 600 下方会导致永远判定为未展开。
+  static const double innerScreenThreshold = 560;
+
   static bool _isIPhone = false;
 
   /// 当前设备是否为 iPhone（不含 iPad）
@@ -36,8 +42,11 @@ abstract final class IOSFoldableHelper {
         defaultValue: true,
       );
 
-  /// 当前是否处于展开状态（窗口最短边 >= 600pt）
-  static bool get isUnfolded => DeviceUtils.isTablet;
+  /// 当前是否处于展开状态（窗口最短边 >= [innerScreenThreshold]）
+  static bool get isUnfolded => isTabletSize(DeviceUtils.size);
+
+  static bool isTabletSize(Size size) =>
+      size.shortestSide >= innerScreenThreshold;
 
   static bool? _lastUnfolded;
 
@@ -45,19 +54,28 @@ abstract final class IOSFoldableHelper {
     if (!Platform.isIOS) return;
     try {
       final info = await DeviceInfoPlugin().iosInfo;
-      _isIPhone = info.model.toLowerCase().contains('iphone');
+      // 只看 model：Duo 的内屏可能与 iPad 同尺寸，特征串未必含 "iphone"
+      _isIPhone = !info.model.toLowerCase().contains('ipad');
     } catch (e) {
       if (kDebugMode) debugPrint('IOSFoldableHelper init: $e');
     }
-    if (!_isIPhone) return;
+    if (kDebugMode) {
+      debugPrint(
+        'IOSFoldableHelper: isIPhone=$_isIPhone, '
+        'size=${DeviceUtils.size}, unfolded=$isUnfolded',
+      );
+    }
+    // 非 iPhone 也注册：判断逻辑本身足够便宜，launch 阶段尺寸不稳定，
+    // 首次 didChangeMetrics 常常早于真实窗口尺寸
     WidgetsBinding.instance.addObserver(_FoldObserver());
+    _lastUnfolded = isUnfolded;
   }
 
   static void _onMetricsChanged() {
     final size = DeviceUtils.size;
     // 首帧前视图尺寸可能为 0，忽略
     if (size.isEmpty) return;
-    final unfolded = size.shortestSide >= 600;
+    final unfolded = isTabletSize(size);
     if (unfolded == _lastUnfolded) return;
     _lastUnfolded = unfolded;
     if (kDebugMode) {
