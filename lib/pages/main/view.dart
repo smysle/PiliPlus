@@ -1,6 +1,7 @@
 import 'package:PiliPlus/common/widgets/rail_page_view.dart';
 
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/home_tools_slot.dart';
@@ -210,12 +211,16 @@ class _MainAppState extends PopScopeState<MainApp>
   void _updateNavMode() {
     // iPhone Duo 的系统状态栏位于右侧竖条（安全区约 84pt），导航放入其中；
     // 普通 iPhone 横屏时灵动岛一侧的安全区约 60pt，不会触发
+    // _padding 已经过 uiScale 缩放（main.dart 里 viewPadding / uiScale），
+    // 而竖栏宽度是原生的 72/84pt，必须用未缩放的值比较。
+    final rawInset = IOSNativeTabBar.safeArea.value;
+    final railWidth = math.max(rawInset?.right ?? 0, rawInset?.left ?? 0);
     _mainController.useStatusBarNav =
         !_mainController.useNativeTabBar &&
         !_mainController.useSideBar &&
         IOSFoldableHelper.isIPhone &&
         _mainController.navigationBars.length > 1 &&
-        _padding.right >= 72;
+        railWidth >= 72;
     // 系统标签栏接管导航时，页面按手机布局显示顶部搜索栏
     if (_mainController.useNativeTabBar ||
         _mainController.useStatusBarNav ||

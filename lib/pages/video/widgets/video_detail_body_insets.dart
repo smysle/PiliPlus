@@ -76,7 +76,8 @@ class StableVideoViewport extends StatefulWidget {
 }
 
 class _StableVideoViewportState extends State<StableVideoViewport> {
-  (Size, double)? _geometry;
+  /// 只按窗口尺寸复用基线；进出全屏时窗口尺寸通常不变，必须一并比较。
+  (Size, double, bool)? _geometry;
   double _top = 0;
   double _bottom = 0;
 
@@ -88,7 +89,11 @@ class _StableVideoViewportState extends State<StableVideoViewport> {
     if (!widget.enabled) {
       return MediaQuery(data: query, child: widget.child);
     }
-    final geometry = (widget.windowSize, query.devicePixelRatio);
+    final geometry = (
+      widget.windowSize,
+      query.devicePixelRatio,
+      widget.enabled,
+    );
     if (_geometry != geometry) {
       _geometry = geometry;
       _top = query.viewPadding.top;

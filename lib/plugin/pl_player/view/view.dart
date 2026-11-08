@@ -1585,6 +1585,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                 children: [
                   AppBarAni(
                     isTop: true,
+                    isFullScreen: isFullScreen,
                     controller: _animationController,
                     removeSafeArea: plPlayerController.removeSafeArea,
                     child: plPlayerController.isDesktopPip
@@ -1598,6 +1599,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                   ),
                   AppBarAni(
                     isTop: false,
+                    isFullScreen: isFullScreen,
                     controller: _animationController,
                     removeSafeArea: plPlayerController.removeSafeArea,
                     child:

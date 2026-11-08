@@ -439,12 +439,24 @@ class _VideoDetailPageVState extends State<_VideoDetailPageContent>
     _updateVerticalBar();
   }
 
+  DateTime? _lastNativeVideoGeometry;
+
   void _watchNativeVideoGeometry() {
     if (_nativeVideoGeometryScheduled || !mounted) return;
     _nativeVideoGeometryScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _nativeVideoGeometryScheduled = false;
       if (!mounted || !(_nativeVideoRoute?.isCurrent ?? false)) return;
+      // 播放中每帧都有一帧，几何位置却只随布局变化。10Hz 采样已足够，
+      // 避免每秒 60 次 localToGlobal + 映射分配。
+      final now = DateTime.now();
+      final last = _lastNativeVideoGeometry;
+      if (last != null &&
+          now.difference(last) < const Duration(milliseconds: 100)) {
+        _watchNativeVideoGeometry();
+        return;
+      }
+      _lastNativeVideoGeometry = now;
       final box = _nativeVideoBoundsKey.currentContext?.findRenderObject();
       Map<String, double>? frame;
       if (box is RenderBox && box.attached && box.hasSize) {

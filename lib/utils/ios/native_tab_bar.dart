@@ -108,12 +108,22 @@ abstract final class IOSNativeTabBar {
   static void unregisterCommentButton(Object source) =>
       _comments.unregister(source);
 
+  static DateTime? _lastCommentRefresh;
+
   static void _watchCommentFrames() {
     if (_commentFrameScheduled || !_comments.hasCandidates) return;
     _commentFrameScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _commentFrameScheduled = false;
-      _comments.refresh();
+      // 每帧 refresh() 会对每个候选走一次祖先链，播放中会一直产生帧。
+      // 竖栏按钮的可见性不需要 60Hz，限到 10Hz 足够。
+      final now = DateTime.now();
+      final last = _lastCommentRefresh;
+      if (last == null ||
+          now.difference(last) >= const Duration(milliseconds: 100)) {
+        _lastCommentRefresh = now;
+        _comments.refresh();
+      }
       // Observe frames caused by navigation/scrolling without requesting idle frames.
       _watchCommentFrames();
     });

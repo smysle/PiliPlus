@@ -7,12 +7,16 @@ class AppBarAni extends StatelessWidget {
     required this.child,
     required this.controller,
     required this.isTop,
+    required this.isFullScreen,
     required this.removeSafeArea,
   });
 
   final Widget child;
   final AnimationController controller;
   final bool isTop;
+
+  /// 只有全屏时播放器才会铺到侧边安全区上，非全屏保持原来的 0 侧边距。
+  final bool isFullScreen;
   final bool removeSafeArea;
 
   static final _topPos = Tween<Offset>(
@@ -56,7 +60,13 @@ class AppBarAni extends StatelessWidget {
         // Layouts that pad the player for the side insets also remove them
         // from MediaQuery, so this only applies where the player spans them,
         // such as fullscreen or iPhone Duo's vertical status bar.
-        child: removeSafeArea ? child : ViewSafeArea(child: child),
+        child: removeSafeArea
+            ? child
+            : ViewSafeArea(
+                left: isFullScreen,
+                right: isFullScreen,
+                child: child,
+              ),
       ),
     );
   }
