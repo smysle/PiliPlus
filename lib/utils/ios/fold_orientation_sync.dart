@@ -19,7 +19,19 @@ class FoldOrientationRequests {
     final id = request['id'] as int;
     if (id <= _latest) return;
     _latest = id;
-    if (!await validate(id) || id != _latest) return;
+    // validate 期间可能又来了更新的请求，这时当前请求已经作废。
+    // 原生侧只有收到 complete 才会清空 directionRequest，作废也要回一个失败，
+    // 否则它的状态机会一直停在等待中。
+    bool valid;
+    try {
+      valid = await validate(id);
+    } catch (_) {
+      valid = false;
+    }
+    if (!valid || id != _latest) {
+      await complete(id, false);
+      return;
+    }
     final orientations = (request['orientations'] as List)
         .map((value) => DeviceOrientation.values.byName(value as String))
         .toList();

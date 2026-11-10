@@ -58,6 +58,10 @@ class NativeNavigationObserver extends NavigatorObserver {
       } else {
         _routes[index] = newRoute;
       }
+    } else if (newRoute != null) {
+      // 找不到被替换的旧路由（替换的是首个路由，或旧路由已被移除回调清掉），
+      // 新路由仍必须进栈，否则返回键和归位遍历都会漏掉它。
+      _routes.add(newRoute);
     }
     _notify();
   }

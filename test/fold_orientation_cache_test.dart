@@ -69,7 +69,9 @@ void main() {
         'id': 1,
         'orientations': ['landscapeRight'],
       });
-      expect(applied, isEmpty);
+      // 方向不能写进 Flutter，但原生侧必须收到一个失败回执，
+      // 否则它的 directionRequest 会一直挂着等这个 id。
+      expect(applied, [(1, false)]);
     },
   );
 

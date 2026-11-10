@@ -24,6 +24,8 @@ import 'package:flutter/widgets.dart'
 ///
 /// 非折叠 iPhone 的最短边永远 < 600，自动模式下行为与关闭横屏适配完全相同。
 abstract final class IOSFoldableHelper {
+  /// 保留实例才能注销：init 在热重启或二次调用时不至于叠加观察者。
+  static final _observer = _FoldObserver();
   static bool _isIPhone = false;
 
   /// 当前设备是否为 iPhone（不含 iPad）
@@ -67,7 +69,9 @@ abstract final class IOSFoldableHelper {
           (newlyRecognized || needsSync))
         applyOrientation();
     };
-    WidgetsBinding.instance.addObserver(_FoldObserver());
+    WidgetsBinding.instance
+      ..removeObserver(_observer)
+      ..addObserver(_observer);
   }
 
   static void _onMetricsChanged() {

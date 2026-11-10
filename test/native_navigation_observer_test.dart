@@ -127,4 +127,23 @@ void main() {
     expect(observer.canGoBack, true);
     expect(find.text('draft'), findsOneWidget);
   });
+
+  test(
+    'a replaced route whose predecessor was already gone still becomes the top',
+    () {
+      Route<dynamic>? top;
+      final observer = NativeNavigationObserver(
+        onCanGoBackChanged: (_) {},
+        onTopRouteChanged: (route) => top = route,
+      );
+      final first = MaterialPageRoute<void>(builder: (_) => const SizedBox());
+      final second = MaterialPageRoute<void>(builder: (_) => const SizedBox());
+      observer
+        ..didPush(first, null)
+        ..didRemove(first, null)
+        // 旧路由已被 didRemove 清掉之后，替换回调仍会把它当锚点传进来。
+        ..didReplace(newRoute: second, oldRoute: first);
+      expect(top, same(second));
+    },
+  );
 }
