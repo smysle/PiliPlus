@@ -1265,7 +1265,6 @@ final class NativePageNavigationController: UINavigationController {
     defer { updatingBars = false }
     let managesVideo = videoChrome != nil && !playerFullScreen
       && !(videoChrome?["fullScreen"] as? Bool ?? false) && hasVerticalBar && canGoBack
-    let isHomeTools = homeToolsRequested && !canGoBack
     // Root tools cannot masquerade as detail-page actions during a route change.
     let pageAllowed = canGoBack && !homeToolsRequested
     let visible = hasVerticalBar && !playerFullScreen && !(videoChrome?["fullScreen"] as? Bool ?? false)
