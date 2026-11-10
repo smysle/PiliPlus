@@ -14,7 +14,6 @@ import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/pages/home/view.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamic_badge_mode.dart';
-import 'package:PiliPlus/utils/ios/native_page_actions.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/desktop/tray_controller.dart';
@@ -73,6 +72,7 @@ class _MainAppState extends PopScopeState<MainApp>
       // 竖栏宽度由原生异步下发，didChangeDependencies 往往先跑一步，
       // 拿到的还是展开前的安全区。这里补上监听，回包后再算一次。
       IOSNativeTabBar.safeArea.addListener(_onNativeHomeChanged);
+      IOSNativeTabBar.onHomeToolAction = _onHomeToolAction;
       _nativeTabBarWorkers.addAll([
         ever(_mainController.selectedIndex, (_) => _onNativeHomeChanged()),
         ever(
@@ -98,69 +98,55 @@ class _MainAppState extends PopScopeState<MainApp>
     _homeToolsScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _homeToolsScheduled = false;
-      if (!mounted || _homeRoute == null) {
-        return;
-      }
-      final isHome =
-          _mainController.navigationBars[_mainController.selectedIndex.value] ==
-          NavigationBarType.home;
-      if (!IOSNativeTabBar.rightRailDevice.value || !isHome) {
-        IOSNativeTabBar.removePageActions(_homeRoute!);
+      if (!mounted || _homeRoute == null) return;
+      // Search and messages belong to the main route, across all root tabs.
+      if (!IOSNativeTabBar.rightRailDevice.value) {
+        IOSNativeTabBar.setHomeToolTabs(const []);
         return;
       }
       final loggedIn = _mainController.accountService.isLogin.value;
       final count = _mainController.msgUnReadCount.value;
       final badgeMode = _mainController.msgBadgeMode;
-      IOSNativeTabBar.setPageActions(
-        route: _homeRoute!,
-        homeTools: true,
-        actions: [
-          const NativePageAction(id: 'search', title: '搜索'),
-          NativePageAction(
-            id: 'notifications',
-            title: '消息',
-            badge:
-                loggedIn &&
-                    badgeMode != DynamicBadgeMode.hidden &&
-                    count != null
-                ? (badgeMode == DynamicBadgeMode.number ? count : '')
-                : null,
-          ),
-        ],
-        onAction: (id) {
-          if (!mounted ||
-              !(_homeRoute?.isCurrent ?? false) ||
-              _mainController.navigationBars[_mainController
-                      .selectedIndex
-                      .value] !=
-                  NavigationBarType.home) {
-            return;
-          }
-          switch (id) {
-            case 'search':
-              Get.toNamed(
-                '/search',
-                parameters: _mainController.homeController.enableSearchWord
-                    ? {
-                        'hintText':
-                            _mainController.homeController.defaultSearch.value,
-                      }
-                    : null,
-              );
-            case 'notifications':
-              if (!_mainController.accountService.isLogin.value) {
-                Get.toNamed('/loginPage');
-                return;
-              }
-              _mainController
-                ..clearUnreadMsg()
-                ..lastCheckUnreadAt = DateTime.now().millisecondsSinceEpoch;
-              Get.toNamed('/whisper');
-          }
-        },
-      );
+      IOSNativeTabBar.setHomeToolTabs([
+        (id: 'search', title: '搜索', badge: null),
+        (
+          id: 'notifications',
+          title: '消息',
+          badge:
+              loggedIn && badgeMode != DynamicBadgeMode.hidden && count != null
+              ? (badgeMode == DynamicBadgeMode.number ? count : '')
+              : null,
+        ),
+      ]);
     });
     WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  void _onHomeToolAction(String id) {
+    if (!mounted || !(_homeRoute?.isCurrent ?? false)) return;
+    switch (id) {
+      case 'search':
+        Get.toNamed(
+          '/search',
+          parameters:
+              _mainController.hasHome &&
+                  _mainController.homeController.enableSearchWord
+              ? {
+                  'hintText':
+                      _mainController.homeController.defaultSearch.value,
+                }
+              : null,
+        );
+      case 'notifications':
+        if (!_mainController.accountService.isLogin.value) {
+          Get.toNamed('/loginPage');
+          return;
+        }
+        _mainController
+          ..clearUnreadMsg()
+          ..lastCheckUnreadAt = DateTime.now().millisecondsSinceEpoch;
+        Get.toNamed('/whisper');
+    }
   }
 
   Future<void> _attachNativeTabBar() async {
@@ -188,6 +174,7 @@ class _MainAppState extends PopScopeState<MainApp>
       _mainController.useNativeTabBar = true;
       _updateNavMode();
     });
+    _scheduleHomeTools();
   }
 
   @override
@@ -274,6 +261,7 @@ class _MainAppState extends PopScopeState<MainApp>
       IOSNativeTabBar.rightRailDevice.removeListener(_onNativeHomeChanged);
       IOSNativeTabBar.homeToolsAvailable.removeListener(_onNativeHomeChanged);
       IOSNativeTabBar.safeArea.removeListener(_onNativeHomeChanged);
+      IOSNativeTabBar.onHomeToolAction = null;
     }
     if (_homeRoute case final route?) IOSNativeTabBar.removePageActions(route);
     if (Platform.isMacOS) {

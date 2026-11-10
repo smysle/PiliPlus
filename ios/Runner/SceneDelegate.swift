@@ -76,6 +76,7 @@ final class NativeTabBarController: UITabBarController, UITabBarControllerDelega
     }
     self.channel = channel
     let host = makeHost()
+    pageHosts = [host]
     viewControllers = [host]
     host.embed(flutterViewController)
     setTabBarHidden(true, animated: false)
@@ -85,6 +86,15 @@ final class NativeTabBarController: UITabBarController, UITabBarControllerDelega
   private var canGoBack = false
   private var isPlayerFullScreen = false
   private var tabsConfigured = false
+  /// Root page tabs, kept separate so action tabs can be added/removed without
+  /// rebuilding the Flutter hosts.
+  private var pageHosts: [FlutterHostViewController] = []
+  private var selectedPageIndex = 0
+  private var restoringPage = false
+  private var homeToolActionPending = false
+  /// Search / notifications, rendered as tab items so the system rail owns them
+  /// and UIKit's per-display bar rebuild cannot drop them.
+  private var actionTabs: [NativeHomeToolViewController] = []
   private var requestedTabBarHidden = true
   private var appliedTabBarHidden = true
   private var videoChrome: [String: Any]?
@@ -241,7 +251,7 @@ final class NativeTabBarController: UITabBarController, UITabBarControllerDelega
       guard let args = call.arguments as? [String: Any],
         let tabs = args["tabs"] as? [[String: String]], tabs.count > 1
       else { return result(false) }
-      let selected = min(args["selected"] as? Int ?? 0, tabs.count - 1)
+      let selected = min(max(args["selected"] as? Int ?? 0, 0), tabs.count - 1)
       let hosts = tabs.map { tab -> FlutterHostViewController in
         let host = makeHost()
         let symbols = Self.symbols(for: tab["id"] ?? "")
@@ -251,13 +261,18 @@ final class NativeTabBarController: UITabBarController, UITabBarControllerDelega
           selectedImage: UIImage(systemName: symbols.selected))
         return host
       }
+      pageHosts = hosts
+      selectedPageIndex = selected
       hosts[selected].embed(flutterViewController)
-      viewControllers = hosts
-      selectedIndex = selected
+      viewControllers = hosts + actionTabs
+      select(selected)
       tabsConfigured = true
       requestedTabBarHidden = false
       updateTabBarVisibility(animated: false)
       result(true)
+    case "setHomeToolTabs":
+      applyHomeToolTabs(call.arguments as? [String: Any] ?? [:])
+      result(nil)
     case "setSelected":
       if let index = call.arguments as? Int { select(index) }
       result(nil)
@@ -282,30 +297,125 @@ final class NativeTabBarController: UITabBarController, UITabBarControllerDelega
     case "home": return ("house", "house.fill")
     case "dynamics": return ("circle.dashed", "circle.dashed.inset.filled")
     case "mine": return ("person", "person.fill")
+    case "search": return ("magnifyingglass", "magnifyingglass")
+    case "notifications": return ("bell", "bell.fill")
     default: return ("circle", "circle.fill")
     }
   }
 
+  /// Search and notifications live in the tab bar rather than in
+  /// navigationItem.leadingItemGroups: UIKit rebuilds the navigation bar when
+  /// the app moves between the inner and outer display and drops those groups,
+  /// while tab items belong to the controller and survive.
+  private func applyHomeToolTabs(_ args: [String: Any]) {
+    let descriptors = args["tabs"] as? [[String: Any]] ?? []
+    let updated = makeActionTabs(descriptors)
+    let changed = updated.count != actionTabs.count
+      || zip(updated, actionTabs).contains { $0 !== $1 }
+    actionTabs = updated
+    if changed { viewControllers = pageHosts + actionTabs }
+    restoreSelectedPage()
+    updateTabBarVisibility(animated: false)
+    navigationHost?.setHomeToolsShown(!actionTabs.isEmpty)
+  }
+
+  private func makeActionTabs(_ descriptors: [[String: Any]]) -> [NativeHomeToolViewController] {
+    var identifiers = Set<String>()
+    return descriptors.compactMap { descriptor in
+      guard let id = descriptor["id"] as? String, !id.isEmpty,
+        identifiers.insert(id).inserted
+      else { return nil }
+      let controller = actionTabs.first { $0.actionID == id }
+        ?? NativeHomeToolViewController(actionID: id)
+      let symbols = Self.symbols(for: id)
+      controller.tabBarItem.title = descriptor["title"] as? String
+      controller.tabBarItem.image = UIImage(systemName: symbols.normal)
+      controller.tabBarItem.selectedImage = UIImage(systemName: symbols.selected)
+      controller.tabBarItem.badgeValue = descriptor["badge"] as? String
+      return controller
+    }
+  }
+
   private func select(_ index: Int) {
-    guard let host = viewControllers?[safe: index] as? FlutterHostViewController,
-      index != selectedIndex
-    else { return }
+    guard let host = pageHosts[safe: index] else { return }
+    // Embedding synchronously reports safe-area changes, so remember the page
+    // before Flutter can send another tools update.
+    selectedPageIndex = index
     host.embed(flutterViewController)
-    selectedIndex = index
+    if selectedViewController !== host { selectedViewController = host }
+  }
+
+  private func restoreSelectedPage() {
+    guard !restoringPage else { return }
+    restoringPage = true
+    defer { restoringPage = false }
+    select(selectedPageIndex)
+  }
+
+  private func activateHomeTool(_ controller: NativeHomeToolViewController) {
+    guard !homeToolActionPending,
+      actionTabs.contains(where: { $0.actionID == controller.actionID }),
+      let channel
+    else { return }
+    // Both delegate families, or a late didSelect, can report the same command
+    // before Flutter has finished handling it.
+    homeToolActionPending = true
+    channel.invokeMethod("homeToolAction", arguments: controller.actionID) { [weak self] _ in
+      self?.homeToolActionPending = false
+    }
+  }
+
+  private func shouldSelect(_ viewController: UIViewController?) -> Bool {
+    if let action = viewController as? NativeHomeToolViewController {
+      restoreSelectedPage()
+      activateHomeTool(action)
+      return false
+    }
+    guard let viewController,
+      let index = pageHosts.firstIndex(where: { $0 === viewController })
+    else { return false }
+    selectedPageIndex = index
+    pageHosts[index].embed(flutterViewController)
+    return true
+  }
+
+  private func didSelect(_ viewController: UIViewController?) {
+    guard !restoringPage else { return }
+    if let viewController,
+      let index = pageHosts.firstIndex(where: { $0 === viewController })
+    {
+      select(index)
+      channel?.invokeMethod("select", arguments: index)
+      return
+    }
+    restoreSelectedPage()
+    if let action = viewController as? NativeHomeToolViewController {
+      activateHomeTool(action)
+    }
   }
 
   func tabBarController(
     _ tabBarController: UITabBarController, shouldSelect viewController: UIViewController
   ) -> Bool {
-    // Move the Flutter view into the tab before UIKit shows it.
-    (viewController as? FlutterHostViewController)?.embed(flutterViewController)
-    return true
+    shouldSelect(viewController)
+  }
+
+  func tabBarController(
+    _ tabBarController: UITabBarController, shouldSelectTab tab: UITab
+  ) -> Bool {
+    shouldSelect(tab.viewController)
   }
 
   func tabBarController(
     _ tabBarController: UITabBarController, didSelect viewController: UIViewController
   ) {
-    channel?.invokeMethod("select", arguments: selectedIndex)
+    didSelect(viewController)
+  }
+
+  func tabBarController(
+    _ tabBarController: UITabBarController, didSelectTab selectedTab: UITab, previousTab: UITab?
+  ) {
+    didSelect(selectedTab.viewController)
   }
 
   override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
@@ -360,6 +470,7 @@ final class NativeTabBarController: UITabBarController, UITabBarControllerDelega
       channel?.invokeMethod("rightRailDevice", arguments: hasVerticalBar)
     }
     verticalBarDidChange()
+    navigationHost?.refreshBarsForDisplayChange()
   }
 
   // The tabs do not forward appearance callbacks, so deliver this controller's
@@ -399,6 +510,21 @@ final class NativeTabBarController: UITabBarController, UITabBarControllerDelega
     super.viewDidDisappear(animated)
     flutterViewController.endAppearanceTransition()
   }
+}
+
+/// An action retains its identity even if UIKit delivers a callback after its
+/// tab item was removed or replaced during a display change.
+private final class NativeHomeToolViewController: UIViewController {
+  let actionID: String
+
+  init(actionID: String) {
+    self.actionID = actionID
+    super.init(nibName: nil, bundle: nil)
+    view.backgroundColor = .clear
+    view.accessibilityIdentifier = "piliplus.action.\(actionID)"
+  }
+
+  required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }
 
 /// A tab's content controller; it only holds the shared Flutter view controller
@@ -989,6 +1115,9 @@ final class NativePageNavigationController: UINavigationController {
   private var actionsVisible = false
   private var needsItemsUpdate = true
   private var homeToolsRequested = false
+  /// Set by the hosting tab bar controller: search and notifications are tab
+  /// items there, not navigationItem groups.
+  private var homeToolsShown = false
   private var homeToolsVisible = false
   private var renderedOwner = 0
   private var updatingBars = false
@@ -1008,6 +1137,8 @@ final class NativePageNavigationController: UINavigationController {
   private var itemCache: [String: (NSDictionary, Int, UIBarButtonItem)] = [:]
   private var navigationUpdateDepth = 0
   private var leadingSignature: [[ObjectIdentifier]] = []
+  /// 上一次写进 navigationItem 的组数，用来发现 UIKit 把组清掉了
+  private var appliedLeadingGroupCount = 0
   private var outerCommandSignature: [String] = []
   private var outerCommandOwner = 0
   private var outerCommandButtons: [String: UIButton] = [:]
@@ -1113,8 +1244,23 @@ final class NativePageNavigationController: UINavigationController {
     updateBars()
   }
 
+  /// The hosting tab bar controller lays out when the app moves between the
+  /// inner and outer display; its own viewDidLayoutSubviews is the only place
+  /// that sees the new window size. Without this call the bars are never
+  /// recomputed for the new display.
+  func refreshBarsForDisplayChange() { updateBars() }
+
+  /// The hosting tab bar controller owns the search/notification tab items.
+  func setHomeToolsShown(_ shown: Bool) {
+    guard homeToolsShown != shown else { return }
+    homeToolsShown = shown
+    updateBars()
+  }
+
   private func updateBars() {
-    guard navigationUpdateDepth == 0, !updatingBars, isViewLoaded, let content = topViewController else { return }
+    guard navigationUpdateDepth == 0, !updatingBars, isViewLoaded, let content = topViewController else {
+      return
+    }
     updatingBars = true
     defer { updatingBars = false }
     let managesVideo = videoChrome != nil && !playerFullScreen
@@ -1135,21 +1281,29 @@ final class NativePageNavigationController: UINavigationController {
     let home = pageActions.first { ($0["id"] as? String) == "home" }
     let fullscreen = pageActions.first { ($0["id"] as? String) == "fullscreen" }
     let showsActions = visible && pageAllowed && !toolbarActions.isEmpty
-    let showsHome = visible && isHomeTools
     let showsToolbar = showsActions || showsComment
+    // UIKit rebuilds the navigation bar when the app moves between the inner and
+    // outer display and drops leadingItemGroups, while none of the cached flags
+    // below change at the same time. Comparing the group count UIKit actually
+    // holds against the last count we wrote lets this update run again.
+    let leadingLost = content.navigationItem.leadingItemGroups.count
+      != appliedLeadingGroupCount
     let animate = view.window != nil && !UIAccessibility.isReduceMotionEnabled
       && (needsItemsUpdate || actionsOwner != renderedOwner || visible != barsVisible
-        || showsHome != homeToolsVisible || showsActions != actionsVisible
+        || showsActions != actionsVisible
         || showsBack != backButtonVisible)
-    if needsItemsUpdate || visible != barsVisible || showsHome != homeToolsVisible
-      || showsBack != backButtonVisible || outerVideo != renderedOuterVideo {
+    if needsItemsUpdate || visible != barsVisible
+      || showsBack != backButtonVisible || outerVideo != renderedOuterVideo
+      || leadingLost {
       needsItemsUpdate = false
       content.navigationItem.hidesBackButton = true
       content.navigationItem.leftItemsSupplementBackButton = false
       var leadingItems: [[UIBarButtonItem]] = []
-      if showsHome {
-        leadingItems = pageActions.map { [makeActionItem($0, owner: actionsOwner)] }
-      } else if showsBack && !outerVideo {
+      // Home tools (search, notifications) are tab items now: tab items are
+      // owned by the tab bar controller and survive the navigation-bar rebuild
+      // that UIKit performs when the app moves between the inner and outer
+      // display, while leadingItemGroups are dropped.
+      if showsBack && !outerVideo {
         var navigationItems = [backItem]
         if let home { navigationItems.append(makeActionItem(home, owner: actionsOwner)) }
         leadingItems.append(navigationItems)
@@ -1228,11 +1382,12 @@ final class NativePageNavigationController: UINavigationController {
       let realized = content.navigationItem.leadingItemGroups.map {
         $0.barButtonItems.map(ObjectIdentifier.init)
       }
-      if signature != leadingSignature || realized != signature {
+      if signature != leadingSignature || realized != signature || leadingLost {
         leadingSignature = signature
         content.navigationItem.leadingItemGroups = leadingItems.map {
           .fixedGroup(representativeItem: nil, items: $0)
         }
+        appliedLeadingGroupCount = leadingItems.count
       }
       var items = showsActions ? toolbarActions.map { makeActionItem($0, owner: actionsOwner) } : []
       if showsComment { items.append(makeCommentItem()) }
@@ -1248,15 +1403,18 @@ final class NativePageNavigationController: UINavigationController {
         }
       #endif
     }
+    // Home tools are tab items owned by the tab bar controller, so this flag is
+    // pushed in rather than derived here.
     let changed = visible != barsVisible || showsActions != actionsVisible
-      || managesVideo != videoNavigationEnabled || showsHome != homeToolsVisible
+      || managesVideo != videoNavigationEnabled
+      || homeToolsShown != homeToolsVisible
       || showsBack != backButtonVisible
     renderedOwner = actionsOwner
     barsVisible = visible
     backButtonVisible = showsBack
     actionsVisible = showsActions
     videoNavigationEnabled = managesVideo
-    homeToolsVisible = showsHome
+    homeToolsVisible = homeToolsShown
     renderedOuterVideo = outerVideo
     let navigationVisible = visible
     if isNavigationBarHidden == navigationVisible {
@@ -1271,7 +1429,7 @@ final class NativePageNavigationController: UINavigationController {
       renderedCommentOwner = commentOwner
       onCommentVisibilityChange?(commentOwner, showsComment)
     }
-    if changed { onVisibilityChange?(showsBack, showsActions, managesVideo, showsHome) }
+    if changed { onVisibilityChange?(showsBack, showsActions, managesVideo, homeToolsShown) }
   }
 
   private func requestBack() {

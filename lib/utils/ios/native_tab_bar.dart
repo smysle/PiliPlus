@@ -28,6 +28,7 @@ abstract final class IOSNativeTabBar {
 
   static ValueChanged<int>? _onSelect;
   static Future<bool> Function()? onReturnToRoot;
+  static int _tabCount = 0;
   static int _selectedIndex = 0;
   static bool _selectingTab = false;
   static Future<void> Function()? onBack;
@@ -280,6 +281,8 @@ abstract final class IOSNativeTabBar {
           await _orientationRequests.handle(
             Map<Object?, Object?>.from(call.arguments as Map),
           );
+        case 'homeToolAction':
+          _onHomeToolAction?.call(call.arguments as String);
         case 'homeToolsVisible':
           homeToolsVisible.value = call.arguments as bool;
           homeToolsAvailable.acknowledgeVisibility(call.arguments as bool);
@@ -290,11 +293,17 @@ abstract final class IOSNativeTabBar {
         case 'backButtonVisible':
           backButtonVisible.value = call.arguments as bool;
         case 'select':
+          if (!_enabled) return;
+          final index = call.arguments;
+          if (index is! int || index < 0 || index >= _tabCount) {
+            setSelected(_selectedIndex);
+            return;
+          }
           if (_selectingTab) return;
           _selectingTab = true;
           try {
             if (await onReturnToRoot?.call() ?? true) {
-              _onSelect?.call(call.arguments as int);
+              _onSelect?.call(index);
             } else {
               setSelected(_selectedIndex);
             }
@@ -338,25 +347,52 @@ abstract final class IOSNativeTabBar {
     required ValueChanged<int> onSelect,
   }) async {
     if (!Platform.isIOS || tabs.length < 2) return false;
+    _enabled = false;
     _onSelect = onSelect;
-    _selectedIndex = selected;
+    _tabCount = tabs.length;
+    _selectedIndex = selected.clamp(0, _tabCount - 1);
     try {
       _enabled =
           await _channel.invokeMethod<bool>('setTabs', {
             'tabs': [
               for (final e in tabs) {'id': e.id, 'title': e.title},
             ],
-            'selected': selected,
+            'selected': _selectedIndex,
           }) ??
           false;
     } on MissingPluginException {
       _enabled = false;
     }
+    if (!_enabled) {
+      _tabCount = 0;
+      _onSelect = null;
+    }
     _comments.refresh();
     return _enabled;
   }
 
+  /// Search and notifications as native tab items. Tab items belong to the
+  /// tab bar controller, so they survive the navigation-bar rebuild that
+  /// happens when the app moves between the inner and outer display.
+  static void setHomeToolTabs(
+    List<({String id, String title, String? badge})> tabs,
+  ) {
+    if (!_enabled) return;
+    _channel.invokeMethod('setHomeToolTabs', {
+      'tabs': [
+        for (final e in tabs)
+          {'id': e.id, 'title': e.title, if (e.badge != null) 'badge': e.badge},
+      ],
+    });
+  }
+
+  static ValueChanged<String>? _onHomeToolAction;
+
+  static set onHomeToolAction(ValueChanged<String>? value) =>
+      _onHomeToolAction = value;
+
   static void setSelected(int index) {
+    if (index < 0 || index >= _tabCount) return;
     _selectedIndex = index;
     if (_enabled) _channel.invokeMethod('setSelected', index);
   }
