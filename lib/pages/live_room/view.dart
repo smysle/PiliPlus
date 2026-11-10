@@ -154,7 +154,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     plPlayerController.danmakuController =
         _liveRoomController.danmakuController;
     _setPlayCallBack();
-    _liveRoomController.startLiveTimer();
+    _liveRoomController.startService(startDM: false);
     if (plPlayerController.playerStatus.isPlaying &&
         plPlayerController.cid == null) {
       _liveRoomController
@@ -179,8 +179,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     plPlayerController.removeStatusLister(playerListener);
     _liveRoomController
       ..danmakuController?.clear()
-      ..cancelLiveTimer()
-      ..closeLiveMsg()
+      ..stopService()
       ..isPlaying = plPlayerController.playerStatus.isPlaying;
     super.didPushNext();
   }
@@ -189,13 +188,11 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     if (status.isPlaying) {
       _liveRoomController
         ..danmakuController?.resume()
-        ..startLiveTimer()
-        ..startLiveMsg();
+        ..startService();
     } else {
       _liveRoomController
         ..danmakuController?.pause()
-        ..cancelLiveTimer()
-        ..closeLiveMsg();
+        ..stopService();
     }
   }
 
@@ -224,11 +221,11 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       if (!plPlayerController.showDanmaku) {
         _liveRoomController
           ..refreshMsgIfNeeded()
-          ..startLiveTimer();
+          ..startService(startDM: false);
         plPlayerController.showDanmaku = true;
       }
     } else if (state == .paused) {
-      _liveRoomController.cancelLiveTimer();
+      _liveRoomController.stopService(stopDM: false);
       plPlayerController
         ..showDanmaku = false
         ..danmakuController?.clear();
@@ -877,7 +874,8 @@ class _LiveRoomPageState extends State<LiveRoomPage>
                 ),
                 Builder(
                   builder: (context) {
-                    final isLogin = kDebugMode || _liveRoomController.isLogin;
+                    final isLogin =
+                        kDebugMode || _liveRoomController.isMainLogin;
                     final colorScheme = ColorScheme.of(context);
                     return Material(
                       type: MaterialType.transparency,
