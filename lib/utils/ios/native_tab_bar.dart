@@ -1,17 +1,16 @@
-import 'dart:async' show scheduleMicrotask;
-
-import 'package:PiliPlus/utils/ios/native_navigation_batch.dart';
-import 'package:PiliPlus/common/widgets/rail_page_view.dart';
-import 'package:PiliPlus/utils/ios/native_page_actions.dart';
-import 'package:PiliPlus/utils/ios/native_comment_actions.dart';
-import 'package:PiliPlus/common/widgets/home_tools_slot.dart';
-import 'package:PiliPlus/utils/ios/fold_orientation_sync.dart';
-import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart'
-    show invalidatePreferredOrientationCache;
-
+import 'dart:async' show Timer, scheduleMicrotask;
 import 'dart:io' show Platform;
 import 'dart:math' show max;
 
+import 'package:PiliPlus/common/widgets/home_tools_slot.dart';
+import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/common/widgets/rail_page_view.dart';
+import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart'
+    show invalidatePreferredOrientationCache;
+import 'package:PiliPlus/utils/ios/fold_orientation_sync.dart';
+import 'package:PiliPlus/utils/ios/native_comment_actions.dart';
+import 'package:PiliPlus/utils/ios/native_navigation_batch.dart';
+import 'package:PiliPlus/utils/ios/native_page_actions.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -73,7 +72,6 @@ abstract final class IOSNativeTabBar {
   /// Sticky for this device session, so folding/temporary bar hiding cannot
   /// re-enable the incompatible Flutter sidebar preference.
   static final rightRailDevice = ValueNotifier(false);
-  static final homeToolsVisible = ValueNotifier(false);
 
   /// The first native acknowledgement fixes the home layout for this session.
   /// Covering the home route must not recreate its fallback search row.
@@ -85,7 +83,6 @@ abstract final class IOSNativeTabBar {
         _enabled && rightRailDevice.value && !playerFullScreen.value,
     onChanged: (state) => _sendNavigationState('setCommentAction', state),
   );
-  static bool _commentFrameScheduled = false;
 
   static int registerCommentButton({
     required Object source,
@@ -102,32 +99,45 @@ abstract final class IOSNativeTabBar {
       label: label,
     );
     _watchCommentFrames();
-    WidgetsBinding.instance.ensureVisualUpdate();
     return owner;
   }
 
-  static void unregisterCommentButton(Object source) =>
-      _comments.unregister(source);
+  static void unregisterCommentButton(Object source) {
+    _comments.unregister(source);
+    _watchCommentFrames();
+  }
 
-  static DateTime? _lastCommentRefresh;
+  static Timer? _commentTimer;
 
+  /// 竖栏评论按钮的可见性靠轮询判定：refresh() 会对每个候选走一次祖先链，
+  /// 播放时每帧都做开销太大。改成固定节奏的 Timer：有播放时 10Hz，
+  /// 静置时 2.5Hz；候选清空后自动停掉，不再产生任何唤醒。
   static void _watchCommentFrames() {
-    if (_commentFrameScheduled || !_comments.hasCandidates) return;
-    _commentFrameScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _commentFrameScheduled = false;
-      // 每帧 refresh() 会对每个候选走一次祖先链，播放中会一直产生帧。
-      // 竖栏按钮的可见性不需要 60Hz，限到 10Hz 足够。
-      final now = DateTime.now();
-      final last = _lastCommentRefresh;
-      if (last == null ||
-          now.difference(last) >= const Duration(milliseconds: 100)) {
-        _lastCommentRefresh = now;
-        _comments.refresh();
+    if (!_comments.hasCandidates) {
+      _commentTimer?.cancel();
+      _commentTimer = null;
+      return;
+    }
+    if (_commentTimer != null) return;
+    _commentTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (!_comments.hasCandidates) {
+        timer.cancel();
+        _commentTimer = null;
+        return;
       }
-      // Observe frames caused by navigation/scrolling without requesting idle frames.
-      _watchCommentFrames();
+      final playing = _isPlaying;
+      // 静置时没有新的帧，可见性也不会变，把节奏降下来。
+      if (!playing && timer.tick % 4 != 0) return;
+      _comments.refresh();
     });
+  }
+
+  static bool get _isPlaying {
+    try {
+      return PlPlayerController.instance?.playerStatus.isPlaying ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Let the hinge observer prepare scene geometry before the display moves.
@@ -168,11 +178,7 @@ abstract final class IOSNativeTabBar {
       route,
       initialVideo:
           route is PageRoute && {'/videoV', '/VideoDetailPageV'}.contains(path)
-          ? const NativeVideoChrome(
-              controlsVisible: false,
-              fullScreen: false,
-              locked: false,
-            )
+          ? const NativeVideoChrome(fullScreen: false)
           : null,
     );
   }
@@ -236,6 +242,16 @@ abstract final class IOSNativeTabBar {
     }
   }
 
+  /// 单向命令（无返回值），原生层不存在时直接忽略。
+  /// 这几个方法都是 fire-and-forget，不加兜底会变成未捕获的异步异常。
+  static Future<void> _invoke(String method, [Object? value]) async {
+    try {
+      await _channel.invokeMethod<void>(method, value);
+    } on MissingPluginException {
+      // 没有原生标签栏容器
+    }
+  }
+
   static void setCanGoBack(bool value) {
     // The observer publishes the route immediately afterwards. Bundle this
     // value with its commands so UIKit never animates an intermediate empty bar.
@@ -284,7 +300,6 @@ abstract final class IOSNativeTabBar {
         case 'homeToolAction':
           _onHomeToolAction?.call(call.arguments as String);
         case 'homeToolsVisible':
-          homeToolsVisible.value = call.arguments as bool;
           homeToolsAvailable.acknowledgeVisibility(call.arguments as bool);
         case 'rightRailDevice':
           if (call.arguments == true) rightRailDevice.value = true;
@@ -378,7 +393,7 @@ abstract final class IOSNativeTabBar {
     List<({String id, String title, String? badge})> tabs,
   ) {
     if (!_enabled) return;
-    _channel.invokeMethod('setHomeToolTabs', {
+    _invoke('setHomeToolTabs', {
       'tabs': [
         for (final e in tabs)
           {'id': e.id, 'title': e.title, if (e.badge != null) 'badge': e.badge},
@@ -394,18 +409,16 @@ abstract final class IOSNativeTabBar {
   static void setSelected(int index) {
     if (index < 0 || index >= _tabCount) return;
     _selectedIndex = index;
-    if (_enabled) _channel.invokeMethod('setSelected', index);
+    if (_enabled) _invoke('setSelected', index);
   }
 
   /// [value] 为 null 时隐藏角标，为空字符串时显示红点
   static void setBadge(int index, String? value) {
-    if (_enabled) {
-      _channel.invokeMethod('setBadge', {'index': index, 'value': value});
-    }
+    if (_enabled) _invoke('setBadge', {'index': index, 'value': value});
   }
 
   static void setHidden(bool hidden) {
-    if (_enabled) _channel.invokeMethod('setHidden', hidden);
+    if (_enabled) _invoke('setHidden', hidden);
   }
 
   /// Actual status-bar visibility; never use this to choose content width.
@@ -436,7 +449,8 @@ class NativeSafeArea extends StatelessWidget {
                     builder: (context, rail, child) {
                       final mediaQuery = MediaQuery.of(context);
                       var nativeInsets = insets;
-                      final verticalRail = rail && insets.right >= 72;
+                      final verticalRail =
+                          rail && insets.right >= RailSpacing.footprint;
                       if (rail) {
                         // Reserve the rail plus a single, fixed 4pt clearance.
                         // Page gutters never add another trailing inset.

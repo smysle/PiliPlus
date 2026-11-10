@@ -14,8 +14,11 @@ bool isOuterPortraitVideoLayout({
     windowSize.shortestSide < 600 &&
     windowSize.height >= windowSize.width;
 
-/// Reserve native points for three controls and the bottom compose affordance.
-/// Flutter's viewport is divided by uiScale, while UIKit buttons stay 44pt.
+/// 为竖栏上的原生控件预留高度。
+///
+/// 224 = 4 × 44pt（返回 / 全屏 / 首页 / 底部评论入口各占一个 44pt 控件位）
+/// + 48pt 余量。Flutter 视口按 uiScale 缩放，而 UIKit 按钮固定 44pt，
+/// 所以换算时要除以 uiScale。
 double outerVideoHeightLimit({
   required double height,
   required EdgeInsets insets,
@@ -56,9 +59,9 @@ class VideoDetailBodyInsets extends StatelessWidget {
   }
 }
 
-/// A vertical system bar changes the reported top safe inset when it fades.
-/// Keep vertical layout insets stable for the same window/scale; real window
-/// resizing gets a fresh baseline; fullscreen uses the current native query.
+/// 竖排系统栏淡出时会改变上报的顶部安全区。这里按窗口尺寸与缩放缓存一次基线，
+/// 同一窗口内保持不变；真正的窗口尺寸变化才重建基线。
+/// 全屏时调用方传 enabled: false，本组件直接返回、不改动 insets。
 class StableVideoViewport extends StatefulWidget {
   const StableVideoViewport({
     super.key,
@@ -77,7 +80,7 @@ class StableVideoViewport extends StatefulWidget {
 
 class _StableVideoViewportState extends State<StableVideoViewport> {
   /// 只按窗口尺寸复用基线；进出全屏时窗口尺寸通常不变，必须一并比较。
-  (Size, double, bool)? _geometry;
+  (Size, double)? _geometry;
   double _top = 0;
   double _bottom = 0;
 
@@ -89,11 +92,7 @@ class _StableVideoViewportState extends State<StableVideoViewport> {
     if (!widget.enabled) {
       return MediaQuery(data: query, child: widget.child);
     }
-    final geometry = (
-      widget.windowSize,
-      query.devicePixelRatio,
-      widget.enabled,
-    );
+    final geometry = (widget.windowSize, query.devicePixelRatio);
     if (_geometry != geometry) {
       _geometry = geometry;
       _top = query.viewPadding.top;

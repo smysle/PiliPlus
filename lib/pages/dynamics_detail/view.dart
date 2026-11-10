@@ -667,7 +667,9 @@ class _DynamicDetailPageState extends CommonDynPageMultiState<DynamicDetailPage>
             padding: EdgeInsets.only(
               right:
                   IOSNativeTabBar.enabled &&
-                      (IOSNativeTabBar.safeArea.value?.right ?? 0) >= 72
+                      RailSpacing.isRail(
+                        IOSNativeTabBar.safeArea.value?.right ?? 0,
+                      )
                   ? 0
                   : padding,
             ),

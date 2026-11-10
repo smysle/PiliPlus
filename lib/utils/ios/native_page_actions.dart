@@ -31,17 +31,13 @@ class NativePageAction {
 /// Player chrome is route-owned, so overlays and stacked videos cannot leak it.
 class NativeVideoChrome {
   const NativeVideoChrome({
-    required this.controlsVisible,
     required this.fullScreen,
-    required this.locked,
     this.frame,
     this.collapsed = false,
     this.paused = false,
   });
 
-  final bool controlsVisible;
   final bool fullScreen;
-  final bool locked;
   final Map<String, double>? frame;
   final bool collapsed;
   final bool paused;
@@ -49,9 +45,7 @@ class NativeVideoChrome {
   bool get visible => !fullScreen;
 
   Map<String, Object> toMap() => {
-    'controlsVisible': controlsVisible,
     'fullScreen': fullScreen,
-    'locked': locked,
     'collapsed': collapsed,
     'paused': paused,
     'frame': ?frame,

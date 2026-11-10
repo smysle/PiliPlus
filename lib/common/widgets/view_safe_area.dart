@@ -17,7 +17,9 @@ class ViewSafeArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final padding = MediaQuery.viewPaddingOf(context);
+    // 读 padding 而不是 viewPadding：路由级的 SideSafeArea 已经让过一次，
+    // SafeArea 只清 padding，再读 viewPadding 会把竖栏宽度让第二遍。
+    final padding = MediaQuery.paddingOf(context);
     return Padding(
       padding: .only(
         top: top ? padding.top : 0.0,

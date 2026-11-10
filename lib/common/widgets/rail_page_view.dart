@@ -202,6 +202,9 @@ class RailPageView extends StatelessWidget {
 abstract final class RailSpacing {
   static const footprint = 72.0;
   static const clearance = 4.0;
+
+  /// 该内边距是否达到原生竖栏的宽度（用未缩放的原生值判断）。
+  static bool isRail(double inset) => inset >= footprint;
   static double rightInset(double systemInset, {required bool fullScreen}) =>
       fullScreen
       ? 0

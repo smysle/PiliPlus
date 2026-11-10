@@ -971,16 +971,18 @@ class DuoFlutterViewController: FlutterViewController {
 
   override func viewDidLayoutSubviews() {
     super.viewDidLayoutSubviews()
-    let scene = view.window?.windowScene
-    let orientation: Int
-    if #available(iOS 16.0, *) {
-      orientation = scene.map { $0.effectiveGeometry.interfaceOrientation.rawValue } ?? 0
-    } else { orientation = 0 }
-    let geometry = "\(view.bounds):\(orientation):\(scene.map { ObjectIdentifier($0.screen).hashValue } ?? 0)"
-    if geometry != lastLayoutGeometry {
-      lastLayoutGeometry = geometry
-      recordOrientation("layout.changed")
-    }
+    #if DEBUG
+      let scene = view.window?.windowScene
+      let orientation: Int
+      if #available(iOS 16.0, *) {
+        orientation = scene.map { $0.effectiveGeometry.interfaceOrientation.rawValue } ?? 0
+      } else { orientation = 0 }
+      let geometry = "\(view.bounds):\(orientation):\(scene.map { ObjectIdentifier($0.screen).hashValue } ?? 0)"
+      if geometry != lastLayoutGeometry {
+        lastLayoutGeometry = geometry
+        recordOrientation("layout.changed")
+      }
+    #endif
     observeNormalDirection()
     advanceDirectionRequest()
     applyHingeOrientation()
@@ -991,7 +993,12 @@ class DuoFlutterViewController: FlutterViewController {
     return orientationTrace
   }
 
+  /// 诊断轨迹只在 debug 构建里收集：release 下 String(describing:) 走反射，
+  /// 每次方向/布局事件都要多花一次字符串化，而没有任何消费者。
   private func recordOrientation(_ event: String, requestedMask: UInt? = nil, error: String? = nil) {
+    #if !DEBUG
+      return
+    #else
     let scene = isViewLoaded ? view.window?.windowScene : nil
     var entry: [String: Any] = [
       "time": ProcessInfo.processInfo.systemUptime,
@@ -1022,6 +1029,7 @@ class DuoFlutterViewController: FlutterViewController {
     if let error { entry["error"] = error }
     orientationTrace.append(entry)
     if orientationTrace.count > 128 { orientationTrace.removeFirst(orientationTrace.count - 128) }
+    #endif
   }
 
   override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
@@ -1139,6 +1147,8 @@ final class NativePageNavigationController: UINavigationController {
   private var leadingSignature: [[ObjectIdentifier]] = []
   /// 上一次写进 navigationItem 的组数，用来发现 UIKit 把组清掉了
   private var appliedLeadingGroupCount = 0
+  /// 上一次 updateBars 的输入签名，布局被成簇触发时用来跳过重复计算
+  private var appliedInputSignature: [String] = []
   private var outerCommandSignature: [String] = []
   private var outerCommandOwner = 0
   private var outerCommandButtons: [String: UIButton] = [:]
@@ -1274,6 +1284,34 @@ final class NativePageNavigationController: UINavigationController {
     let outerVideo = managesVideo && !innerDisplay
     let showsBack = visible && canGoBack && (!outerVideo || videoChrome?["frame"] != nil)
     let showsComment = visible && commentRequested && commentOwner != 0
+    // 布局 pass 会成簇触发（折叠、状态栏、键盘、tabBar 动画），每次都全量重算
+    // filter/first 只为得到同一份结果。先把影响输出的输入汇总成签名，未变则直接返回。
+    let inputSignature: [String] = [
+      canGoBack ? "1" : "0",
+      playerFullScreen ? "1" : "0",
+      actionsOwner.description,
+      pageActions.count.description,
+      pageActions.compactMap { $0["id"] as? String }.joined(separator: ","),
+      pageActions.compactMap { $0["enabled"] as? Bool }.map { $0 ? "1" : "0" }.joined(),
+      videoChrome == nil ? "-" : "1",
+      videoChrome?["fullScreen"] as? Bool == true ? "1" : "0",
+      videoChrome?["frame"] == nil ? "-" : "f",
+      videoNavigationEnabled ? "1" : "0",
+      commentOwner.description,
+      commentRequested ? "1" : "0",
+      commentLabel,
+      homeToolsRequested ? "1" : "0",
+      homeToolsShown ? "1" : "0",
+      hasVerticalBar ? "1" : "0",
+      view.bounds.width.description,
+      view.bounds.height.description,
+    ]
+    let leadingLostNow =
+      content.navigationItem.leadingItemGroups.count != appliedLeadingGroupCount
+    if !needsItemsUpdate, !leadingLostNow, inputSignature == appliedInputSignature {
+      return
+    }
+    appliedInputSignature = inputSignature
     let toolbarActions = homeToolsRequested ? [] : pageActions.filter {
       !["home", "fullscreen"].contains($0["id"] as? String ?? "")
     }

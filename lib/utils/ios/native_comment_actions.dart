@@ -52,7 +52,8 @@ class NativeCommentActions {
     refresh();
   }
 
-  void refresh() {
+  /// 返回 true 表示本次刷新确实改变了状态。
+  bool refresh() {
     _CommentAction? selected;
     if (canPresent()) {
       for (final action in _actions.values) {
@@ -61,10 +62,11 @@ class NativeCommentActions {
     }
     final owner = selected?.owner ?? 0;
     final label = selected?.label ?? '';
-    if (owner == _activeOwner && label == _label) return;
+    if (owner == _activeOwner && label == _label) return false;
     _activeOwner = owner;
     _label = label;
     onChanged({'owner': owner, 'visible': owner != 0, 'label': label});
+    return true;
   }
 
   Future<void> handle(int owner) async {

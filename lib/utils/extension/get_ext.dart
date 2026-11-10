@@ -4,8 +4,10 @@ import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:get/get.dart';
 
 extension GetExt on GetInterface {
-  /// Direct routes need the same side-inset protection as named routes.
-  /// Preserve the original route name so duplicate prevention stays unchanged.
+  /// 直接路由与命名路由一样需要侧边让位。
+  ///
+  /// 直接路由没有注册名，这里合成一个稳定的伪路由名，仅用于
+  /// [preventDuplicates] 去重，不对应任何 GetPage.name。
   Future<T?>? toSafe<T>(
     dynamic page, {
     int? id,

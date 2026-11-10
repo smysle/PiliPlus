@@ -12,18 +12,14 @@ void main() {
     );
     registry.setTopPage(
       Object(),
-      initialVideo: const NativeVideoChrome(
-        controlsVisible: false,
-        fullScreen: false,
-        locked: false,
-      ),
+      initialVideo: const NativeVideoChrome(fullScreen: false),
     );
-    expect(state['video'], containsPair('controlsVisible', false));
+    expect(state['video'], containsPair('fullScreen', false));
     registry.setTopPage(Object());
     expect(state['video'], false);
   });
   test(
-    'video rail commands persist with controls hidden but not in fullscreen',
+    'video rail commands persist outside fullscreen only',
     () async {
       late Map<String, Object> state;
       final registry = NativePageActionRegistry(
@@ -32,32 +28,23 @@ void main() {
       final videoPage = Object();
       final overlay = Object();
       var homeCalls = 0;
-      void update({
-        required bool controls,
-        bool locked = false,
-        bool fullScreen = false,
-      }) => registry.register(
+      void update({bool fullScreen = false}) => registry.register(
         page: videoPage,
         actions: const [NativePageAction(id: 'home', title: '返回主页')],
-        video: NativeVideoChrome(
-          controlsVisible: controls,
-          locked: locked,
-          fullScreen: fullScreen,
-        ),
+        video: NativeVideoChrome(fullScreen: fullScreen),
         handler: (_) => homeCalls++,
       );
       registry.setTopPage(videoPage);
-      update(controls: false);
+      update();
       final owner = state['owner'] as int;
       await registry.handle(owner: owner, id: 'home');
       expect(homeCalls, 1);
-      update(controls: true, locked: true);
       await registry.handle(owner: owner, id: 'home');
       expect(homeCalls, 2);
-      update(controls: true, fullScreen: true);
+      update(fullScreen: true);
       await registry.handle(owner: owner, id: 'home');
       expect(homeCalls, 2);
-      update(controls: true);
+      update();
       registry.setTopPage(overlay);
       expect(state['video'], false);
       expect(state['items'], isEmpty);
@@ -83,17 +70,13 @@ void main() {
       );
       registry.setTopPage(page);
       var collapsed = false;
-      var controls = true;
-      var locked = false;
       var paused = false;
       final transitions = <bool>[];
       void publish() => registry.register(
         page: page,
         actions: const [NativePageAction(id: 'home', title: '返回主页')],
         video: NativeVideoChrome(
-          controlsVisible: controls,
           fullScreen: false,
-          locked: locked,
           collapsed: collapsed,
           paused: paused,
         ),
@@ -128,8 +111,6 @@ void main() {
       scroll.jumpTo(344);
       await tester.pump();
       expect(state['video'], containsPair('collapsed', true));
-      controls = false;
-      locked = true;
       publish();
       expect(state['video'], containsPair('collapsed', true));
       scroll.jumpTo(0);

@@ -12,7 +12,9 @@ class ViewSliverSafeArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final padding = MediaQuery.viewPaddingOf(context);
+    // 同 ViewSafeArea：padding 已扣除路由级 SideSafeArea 的让位，
+    // 改读 viewPadding 会让竖栏宽度重复计入。
+    final padding = MediaQuery.paddingOf(context);
     return SliverPadding(
       padding: .only(
         left: padding.left,

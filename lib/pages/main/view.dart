@@ -210,7 +210,7 @@ class _MainAppState extends PopScopeState<MainApp>
         !_mainController.useSideBar &&
         IOSFoldableHelper.isIPhone &&
         _mainController.navigationBars.length > 1 &&
-        railWidth >= 72;
+        railWidth >= RailSpacing.footprint;
     // 系统标签栏接管导航时，页面按手机布局显示顶部搜索栏
     if (_mainController.useNativeTabBar ||
         _mainController.useStatusBarNav ||

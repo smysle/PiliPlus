@@ -1,5 +1,3 @@
-import 'package:PiliPlus/pages/video/widgets/collapsed_video_toolbar.dart';
-
 import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:math';
@@ -9,6 +7,8 @@ import 'package:flutter/rendering.dart'
 
 import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/common/widgets/rail_page_view.dart';
+import 'package:PiliPlus/pages/video/widgets/collapsed_video_toolbar.dart';
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
@@ -98,8 +98,8 @@ class VideoDetailPageV extends StatelessWidget {
   Widget build(BuildContext context) {
     final rawInsets = IOSNativeTabBar.safeArea.value;
     final hasSideBar =
-        (rawInsets?.right ?? 0) >= 72 ||
-        (rawInsets?.left ?? 0) >= 72 ||
+        RailSpacing.isRail(rawInsets?.right ?? 0) ||
+        RailSpacing.isRail(rawInsets?.left ?? 0) ||
         IOSNativeTabBar.usesNativeVideoNavigation(context);
     return ValueListenableBuilder<bool>(
       valueListenable: IOSNativeTabBar.playerFullScreen,
@@ -507,7 +507,7 @@ class _VideoDetailPageVState extends State<_VideoDetailPageContent>
     windowSize: DeviceUtils.size,
     isIPhone: IOSFoldableHelper.isIPhone,
     hasSideBar:
-        (IOSNativeTabBar.safeArea.value?.right ?? 0) >= 72 ||
+        RailSpacing.isRail(IOSNativeTabBar.safeArea.value?.right ?? 0) ||
         IOSNativeTabBar.usesNativeVideoNavigation(context),
   );
 
@@ -526,13 +526,7 @@ class _VideoDetailPageVState extends State<_VideoDetailPageContent>
           NativePageAction(id: 'fullscreen', title: '全屏'),
         ],
         video: NativeVideoChrome(
-          controlsVisible:
-              player.showControls.value &&
-              videoDetailController.autoPlay &&
-              videoDetailController.videoState.value &&
-              player.videoController != null,
           fullScreen: player.isFullScreen.value,
-          locked: player.controlsLock.value,
           frame: _nativeVideoFrame,
           collapsed: _usesOuterPortraitLayout && _nativeVideoCollapsed,
           paused: !player.playerStatus.isPlaying,
