@@ -1,14 +1,24 @@
+import 'dart:math' as math;
+
+import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:collection/collection.dart';
-import 'package:flutter/rendering.dart' show Offset, Size;
+import 'package:flutter/rendering.dart' show Offset, Rect, Size;
 import 'package:nativeapi/nativeapi.dart' as nativeapi;
 import 'package:screen_retriever/screen_retriever.dart';
 
 const _displayManager = nativeapi.DisplayManager.instance;
 
 nativeapi.Rectangle calcWindowBounds() {
-  final windowSize = Pref.windowSize;
-  final offset = calcWindowPosition(windowSize);
+  final workArea = _currentWorkArea;
+  var windowSize = Pref.windowSize;
+  if (workArea != null) {
+    windowSize = Size(
+      math.min(windowSize.width, workArea.width),
+      math.min(windowSize.height, workArea.height),
+    );
+  }
+  final offset = calcWindowPosition(windowSize, workArea);
   return nativeapi.Rectangle(
     x: offset.dx,
     y: offset.dy,
@@ -17,7 +27,17 @@ nativeapi.Rectangle calcWindowBounds() {
   );
 }
 
-Offset calcWindowPosition(Size windowSize) {
+nativeapi.Size calcWindowMinSize() {
+  const minSize = DeviceUtils.desktopMinSize;
+  final workArea = _currentWorkArea;
+  if (workArea == null) return minSize;
+  return nativeapi.Size(
+    width: math.min(minSize.width, workArea.width),
+    height: math.min(minSize.height, workArea.height),
+  );
+}
+
+Rect? get _currentWorkArea {
   final displays = _displayManager.getAll();
   final cursorPosition = _displayManager.getCursorPosition().toOffset();
 
@@ -28,9 +48,11 @@ Offset calcWindowPosition(Size windowSize) {
       ) ??
       _displayManager.getPrimary();
 
-  if (currentDisplay == null) return .zero;
+  return currentDisplay?.workArea.toRect();
+}
 
-  final workArea = currentDisplay.workArea.toRect();
+Offset calcWindowPosition(Size windowSize, Rect? workArea) {
+  if (workArea == null) return .zero;
 
   final double visibleWidth = workArea.width;
   final double visibleHeight = workArea.height;
@@ -45,8 +67,8 @@ Offset calcWindowPosition(Size windowSize) {
       final dy = windowPosition[1];
       if (dx >= visibleStartX &&
           dy >= visibleStartY &&
-          dx < (visibleWidth - 30) &&
-          dy < (visibleHeight - 30)) {
+          dx < (workArea.right - 30) &&
+          dy < (workArea.bottom - 30)) {
         return Offset(dx, dy);
       }
     } catch (_) {}

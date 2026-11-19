@@ -237,7 +237,7 @@ void main() async {
             : .hidden
         ..isWindowControlButtonsVisible = true
         ..bounds = calcWindowBounds()
-        ..minimumSize = DeviceUtils.desktopMinSize
+        ..minimumSize = calcWindowMinSize()
         ..isVisibleInTaskbar = true
         ..title = Constants.appName;
       if (useContentUnderTitleBar) window.setContentUnderTitleBar(true);
