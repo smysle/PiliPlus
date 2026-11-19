@@ -231,20 +231,31 @@ void main() async {
       final showTitleBar = Pref.showWindowTitleBar;
       // macOS 隐藏标题栏时改用 contentUnderTitleBar，保持窗口可拖动
       final useContentUnderTitleBar = Platform.isMacOS && !showTitleBar;
+      final bounds = calcWindowBounds();
       window
         ..titleBarStyle = useContentUnderTitleBar || showTitleBar
             ? .normal
             : .hidden
         ..isWindowControlButtonsVisible = true
-        ..bounds = calcWindowBounds()
+        ..bounds = bounds
         ..minimumSize = calcWindowMinSize()
         ..isVisibleInTaskbar = true
         ..title = Constants.appName;
       if (useContentUnderTitleBar) window.setContentUnderTitleBar(true);
       if (Pref.isWindowMaximized) window.maximize();
-      void show([_]) => window
-        ..focus()
-        ..show();
+      void show([_]) {
+        window
+          ..focus()
+          ..show();
+        if (!Pref.isWindowMaximized) {
+          reapplyWindowBoundsAfterMap(
+            window,
+            bounds,
+            hasTitleBar: showTitleBar,
+          );
+        }
+      }
+
       switch (WidgetsBinding.instance.schedulerPhase) {
         case .idle || .postFrameCallbacks:
           WidgetsBinding.instance.scheduleFrameCallback(show);

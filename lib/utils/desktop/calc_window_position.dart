@@ -1,3 +1,5 @@
+import 'dart:async' show Timer;
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:PiliPlus/utils/device_utils.dart';
@@ -25,6 +27,30 @@ nativeapi.Rectangle calcWindowBounds() {
     width: windowSize.width,
     height: windowSize.height,
   );
+}
+
+/// On Linux, bounds set before the window is mapped are applied as content
+/// bounds (no frame yet) and the position is left to the window manager.
+/// Reapply them once the frame exists so they match the saved frame bounds.
+void reapplyWindowBoundsAfterMap(
+  nativeapi.Window window,
+  nativeapi.Rectangle bounds, {
+  required bool hasTitleBar,
+}) {
+  if (!Platform.isLinux) return;
+  var attempts = 0;
+  Timer.periodic(const Duration(milliseconds: 50), (timer) {
+    if (++attempts > 40 || window.isMaximized || window.isFullScreen) {
+      timer.cancel();
+      return;
+    }
+    if (!window.isVisible) return;
+    final hasFrame = window.size.height > window.contentSize.height;
+    if (hasFrame || !hasTitleBar || attempts > 20) {
+      timer.cancel();
+      window.bounds = bounds;
+    }
+  });
 }
 
 nativeapi.Size calcWindowMinSize() {
