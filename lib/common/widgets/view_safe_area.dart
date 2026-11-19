@@ -42,7 +42,7 @@ class SideSafeArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final padding = MediaQuery.paddingOf(context);
-    if (padding.left == 0 && padding.right == 0) return child;
+    final hasSidePadding = padding.left != 0 || padding.right != 0;
     final content = SafeArea(top: false, bottom: false, child: child);
     final route = ModalRoute.of(context);
     final animations = <Listenable>[
@@ -57,7 +57,7 @@ class SideSafeArea extends StatelessWidget {
             (route?.animation?.value ?? 1) < 1 ||
             (route?.secondaryAnimation?.value ?? 0) > 0;
         return ColoredBox(
-          color: moving
+          color: moving || !hasSidePadding
               ? Colors.transparent
               : Theme.of(context).scaffoldBackgroundColor,
           child: child,
