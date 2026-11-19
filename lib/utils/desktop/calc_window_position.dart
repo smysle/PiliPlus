@@ -30,10 +30,10 @@ nativeapi.Rectangle calcWindowBounds() {
 }
 
 /// On Linux, bounds set before the window is mapped are applied as content
-/// bounds (no frame yet) and the position is left to the window manager.
-/// Reapply them once the frame exists so they match the saved frame bounds.
-/// A window manager may also maximize a window whose frame does not fit the
-/// work area; that maximization is undone, as the window was not maximized.
+/// bounds (no frame yet) and the position is left to the window manager,
+/// which may also maximize (fully or only vertically) a window that does not
+/// fit. Once the frame exists, undo that and reapply the frame bounds until
+/// the window manager has settled on them.
 void reapplyWindowBoundsAfterMap(
   nativeapi.Window window,
   nativeapi.Rectangle bounds, {
@@ -41,20 +41,32 @@ void reapplyWindowBoundsAfterMap(
 }) {
   if (!Platform.isLinux) return;
   var attempts = 0;
+  var applied = 0;
   Timer.periodic(const Duration(milliseconds: 50), (timer) {
     if (++attempts > 40 || window.isFullScreen) {
       timer.cancel();
       return;
     }
     if (!window.isVisible) return;
-    final hasFrame = window.size.height > window.contentSize.height;
-    if (hasFrame || !hasTitleBar || attempts > 20) {
+    if (applied == 0) {
+      final hasFrame = window.size.height > window.contentSize.height;
+      if (!hasFrame && hasTitleBar && attempts <= 20) return;
+    } else if (_isSameBounds(window.bounds, bounds) || applied >= 5) {
       timer.cancel();
-      if (window.isMaximized) window.unmaximize();
-      window.bounds = bounds;
+      return;
     }
+    applied++;
+    window
+      ..unmaximize()
+      ..bounds = bounds;
   });
 }
+
+bool _isSameBounds(nativeapi.Rectangle a, nativeapi.Rectangle b) =>
+    (a.x - b.x).abs() <= 1 &&
+    (a.y - b.y).abs() <= 1 &&
+    (a.width - b.width).abs() <= 1 &&
+    (a.height - b.height).abs() <= 1;
 
 nativeapi.Size calcWindowMinSize() {
   const minSize = DeviceUtils.desktopMinSize;
