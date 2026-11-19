@@ -214,8 +214,9 @@ class _MainAppState extends PopScopeState<MainApp>
         _mainController.useStatusBarNav ||
         IOSNativeTabBar.rightRailDevice.value) {
       _mainController.useBottomNav = true;
-    } else if (!_mainController.useSideBar) {
-      _mainController.useBottomNav = MediaQuery.isPortraitOf(context);
+    } else {
+      _mainController.useBottomNav =
+          !_mainController.useSideBar && MediaQuery.isPortraitOf(context);
     }
     _mainController.homeToolsPlacement.value = resolveHomeToolsPlacement(
       useBottomNav: _mainController.useBottomNav,
