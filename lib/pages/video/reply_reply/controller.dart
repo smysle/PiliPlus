@@ -232,7 +232,14 @@ class VideoReplyReplyController extends ReplyController
       loadingState
         ..value.dataOrNull?.insert(index + 1, replyInfo)
         ..refresh();
+      _onFlatDataChanged();
     }
+  }
+
+  @override
+  void onRemove(int index, ReplyInfo item, int? subIndex) {
+    super.onRemove(index, item, subIndex);
+    _onFlatDataChanged();
   }
 
   Timer? _replyTimer;
@@ -318,11 +325,31 @@ class VideoReplyReplyController extends ReplyController
   }
 
   bool showReplyTree = false;
+  bool _isReplyTreeStale = false;
   final replyTree = Rxn<ReplyTree>();
+
+  void _onFlatDataChanged() {
+    if (replyTree.rawValue == null) return;
+    if (showReplyTree) {
+      buildTree();
+    } else {
+      _isReplyTreeStale = true;
+    }
+  }
+
+  void toggleReplyTree() {
+    if (!showReplyTree && _isReplyTreeStale) {
+      buildTree();
+      return;
+    }
+    showReplyTree = !showReplyTree;
+    replyTree.refresh();
+  }
 
   void buildTree() {
     final data = loadingState.rawValue.data!;
     if (data.isEmpty) return;
+    _isReplyTreeStale = false;
     final seen = HashSet<Int64>();
     data.retainWhere((i) => seen.add(i.id));
     showReplyTree = true;
@@ -375,7 +402,7 @@ class VideoReplyReplyController extends ReplyController
     final data = loadingState.rawValue.dataOrNull;
     if (data != null) {
       final index = data.reverseIdentityIndexOf(replyItem);
-      onRemove(index, replyItem, null);
+      super.onRemove(index, replyItem, null);
     }
   }
 }

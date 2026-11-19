@@ -98,13 +98,13 @@ class FansMedalController
         ..refresh();
       return;
     }
-    // final res = await LiveHttp.delFansMedal(medalId: item.uinfoMedal.id!);
-    // if (res.isSuccess) {
-    //   loadingState
-    //     ..value.data!.remove(item)
-    //     ..refresh();
-    // } else {
-    //   res.toast();
-    // }
+    final res = await LiveHttp.delFansMedal(medalId: item.uinfoMedal.id!);
+    if (res.isSuccess) {
+      loadingState
+        ..value.data!.remove(item)
+        ..refresh();
+    } else {
+      res.toast();
+    }
   }
 }
