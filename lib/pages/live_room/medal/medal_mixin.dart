@@ -105,14 +105,16 @@ mixin LiveMedalMixin<T extends StatefulWidget>
             final item = response[index];
             return ListTile(
               dense: true,
-              leading: Radio(
-                value: item.medal.wearingStatus,
-                // ignore: deprecated_member_use
-                groupValue: 1,
-                // ignore: deprecated_member_use
-                onChanged: (value) {},
-                visualDensity: .compact,
-                materialTapTargetSize: .shrinkWrap,
+              leading: IgnorePointer(
+                child: Radio(
+                  value: item.medal.wearingStatus,
+                  // ignore: deprecated_member_use
+                  groupValue: 1,
+                  // ignore: deprecated_member_use
+                  onChanged: (value) {},
+                  visualDensity: .compact,
+                  materialTapTargetSize: .shrinkWrap,
+                ),
               ),
               onTap: () async {
                 final isWearing = item.medal.wearingStatus == 1;
