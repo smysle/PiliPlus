@@ -6,6 +6,7 @@ import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/ios/native_tab_bar.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import 'package:flutter/widgets.dart'
@@ -32,12 +33,7 @@ abstract final class IOSFoldableHelper {
   static bool get isIPhone => _isIPhone;
 
   /// 横屏适配是否由折叠状态自动决定
-  static bool get isAuto =>
-      _isIPhone &&
-      GStorage.setting.get(
-        SettingBoxKey.foldableAutoHorizontal,
-        defaultValue: true,
-      );
+  static bool get isAuto => _isIPhone && Pref.foldableAutoHorizontal;
 
   /// 当前是否处于展开状态（窗口最短边 >= 600pt）
   static bool get isUnfolded => DeviceUtils.isTablet;

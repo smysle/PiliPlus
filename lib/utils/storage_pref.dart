@@ -646,6 +646,11 @@ abstract final class Pref {
   static bool get optTabletNav =>
       _setting.get(SettingBoxKey.optTabletNav, defaultValue: true);
 
+  static bool get foldableAutoHorizontal => _setting.get(
+    SettingBoxKey.foldableAutoHorizontal,
+    defaultValue: !_setting.containsKey(SettingBoxKey.horizontalScreen),
+  );
+
   static bool get horizontalScreen {
     // 折叠屏 iPhone：展开时使用横屏适配，合上时恢复手机布局
     if (IOSFoldableHelper.isAuto) return IOSFoldableHelper.isUnfolded;
@@ -1151,4 +1156,7 @@ abstract final class Pref {
 
   static bool get cachePlayInfo =>
       _setting.get(SettingBoxKey.cachePlayInfo, defaultValue: true);
+
+  static bool get autoWearMedal =>
+      _setting.get(SettingBoxKey.autoWearMedal, defaultValue: false);
 }

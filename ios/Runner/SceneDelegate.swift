@@ -1164,8 +1164,10 @@ final class NativePageNavigationController: UINavigationController {
     item.hidesSharedBackground = true
     item.sharesBackground = false
     item.accessibilityElementsHidden = true
-    if #available(iOS 27.0, *) { item.isPaddingRemoved = true; item.visibilityPriority = .high }
-    if #available(iOS 27.1, *) { item.axisBehavior = .verticalPreferred }
+    #if compiler(>=6.4)
+      if #available(iOS 27.0, *) { item.isPaddingRemoved = true; item.visibilityPriority = .high }
+      if #available(iOS 27.1, *) { item.axisBehavior = .verticalPreferred }
+    #endif
     return item
   }()
 
@@ -1621,8 +1623,10 @@ final class NativePageNavigationController: UINavigationController {
     }
     item.identifier = "piliplus.comment.compose"
     cachedCommentItem = (owner, commentLabel, item)
-    if #available(iOS 27.0, *) { item.visibilityPriority = .high }
-    if #available(iOS 27.1, *) { item.axisBehavior = .verticalPreferred }
+    #if compiler(>=6.4)
+      if #available(iOS 27.0, *) { item.visibilityPriority = .high }
+      if #available(iOS 27.1, *) { item.axisBehavior = .verticalPreferred }
+    #endif
     return item
   }
 
@@ -1749,7 +1753,9 @@ final class NativePageNavigationController: UINavigationController {
     let item = UIBarButtonItem(customView: container)
     // The bar must not draw another capsule around our square glass button.
     item.hidesSharedBackground = true
-    if #available(iOS 27.0, *) { item.isPaddingRemoved = true }
+    #if compiler(>=6.4)
+      if #available(iOS 27.0, *) { item.isPaddingRemoved = true }
+    #endif
     item.title = title
     item.accessibilityLabel = button.accessibilityLabel
     item.menuRepresentation = UIAction(title: title, image: image, handler: handler)

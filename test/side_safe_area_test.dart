@@ -3,6 +3,32 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 void main() {
+  testWidgets('side inset changes preserve the child State', (tester) async {
+    Future<void> pumpInset(double right) => tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(
+            padding: EdgeInsets.only(right: right),
+            viewPadding: EdgeInsets.only(right: right),
+          ),
+          child: const SideSafeArea(child: _StateProbe()),
+        ),
+      ),
+    );
+
+    await pumpInset(0);
+    final state = tester.state(find.byType(_StateProbe));
+    await tester.tap(find.text('0'));
+    await tester.pump();
+
+    for (final right in [84.0, 0.0]) {
+      await pumpInset(right);
+      expect(tester.state(find.byType(_StateProbe)), same(state));
+      expect(find.text('1'), findsOneWidget);
+      expect(tester.getSize(find.byType(_StateProbe)).width, 800 - right);
+    }
+  });
+
   for (final right in [0.0, 84.0]) {
     testWidgets('side inset $right is consumed exactly once', (tester) async {
       late EdgeInsets remainingPadding;
@@ -69,5 +95,22 @@ void main() {
       );
       expect(inner, const EdgeInsets.only(top: 24, bottom: 20));
     },
+  );
+}
+
+class _StateProbe extends StatefulWidget {
+  const _StateProbe();
+
+  @override
+  State<_StateProbe> createState() => _StateProbeState();
+}
+
+class _StateProbeState extends State<_StateProbe> {
+  int _count = 0;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: () => setState(() => _count++),
+    child: SizedBox.expand(child: Center(child: Text('$_count'))),
   );
 }
