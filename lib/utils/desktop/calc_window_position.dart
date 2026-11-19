@@ -32,6 +32,8 @@ nativeapi.Rectangle calcWindowBounds() {
 /// On Linux, bounds set before the window is mapped are applied as content
 /// bounds (no frame yet) and the position is left to the window manager.
 /// Reapply them once the frame exists so they match the saved frame bounds.
+/// A window manager may also maximize a window whose frame does not fit the
+/// work area; that maximization is undone, as the window was not maximized.
 void reapplyWindowBoundsAfterMap(
   nativeapi.Window window,
   nativeapi.Rectangle bounds, {
@@ -40,7 +42,7 @@ void reapplyWindowBoundsAfterMap(
   if (!Platform.isLinux) return;
   var attempts = 0;
   Timer.periodic(const Duration(milliseconds: 50), (timer) {
-    if (++attempts > 40 || window.isMaximized || window.isFullScreen) {
+    if (++attempts > 40 || window.isFullScreen) {
       timer.cancel();
       return;
     }
@@ -48,6 +50,7 @@ void reapplyWindowBoundsAfterMap(
     final hasFrame = window.size.height > window.contentSize.height;
     if (hasFrame || !hasTitleBar || attempts > 20) {
       timer.cancel();
+      if (window.isMaximized) window.unmaximize();
       window.bounds = bounds;
     }
   });
