@@ -273,9 +273,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
               visualDensity: .compact,
               onPressed: () {
                 if (controller.replyTree.rawValue != null) {
-                  controller
-                    ..showReplyTree = !controller.showReplyTree
-                    ..replyTree.refresh();
+                  controller.toggleReplyTree();
                   return;
                 }
 
